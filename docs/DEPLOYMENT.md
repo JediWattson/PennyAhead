@@ -38,4 +38,4 @@ Deleting the `pennyahead-demo` CloudFormation stack removes the distribution, in
 
 ## Verification recorded
 
-CloudFormation template validation passed against the configured AWS account. The managed CloudFront cache/request policy IDs and default public subnet were verified through AWS APIs. Local production HTTP checks returned 403 for absent/wrong origin tokens and 200 for the correct token. Docker was unavailable locally; the public CI workflow builds and smoke-tests the container separately. Neither template validation nor a local HTTP check proves an AWS deployment is serving traffic.
+CloudFormation template validation passed against the configured AWS account. The managed CloudFront cache/request policy IDs and default public subnet were verified through AWS APIs. Local production HTTP checks returned 403 for absent/wrong origin tokens and 200 for the correct token. Docker was unavailable locally; the public CI container job successfully built the image and verified HTTP health on commit d4f7f38. Neither template validation nor a local HTTP check proves an AWS deployment is serving traffic.

@@ -43,6 +43,9 @@ test('approved simulation is pending until settlement, updates forecast and chat
     timeout: 12000,
   });
   await expect(page.getByRole('log')).not.toContainText('$183.96');
+  await expect(page.getByTestId('transfer-record')).toContainText(
+    'This receipt no longer affects your balances.',
+  );
 });
 test('declining does not send and automatic funding can be revoked before a later check', async ({
   page,

@@ -135,8 +135,9 @@ export function TransferPanel({
                 {transfer.status === 'completed' &&
                   transfer.environment === 'local_simulation' && (
                     <p>
-                      Simulated money received. Your demo balances and forecast
-                      now include it.
+                      {transfer.generation === state.generation
+                        ? 'Simulated money received. Your demo balances and forecast now include it.'
+                        : 'Completed in an earlier demo run. This receipt no longer affects your balances.'}
                     </p>
                   )}
                 {transfer.status === 'completed' &&
