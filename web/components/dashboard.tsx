@@ -23,6 +23,7 @@ import type {
 import { formatMoney } from '../lib/money';
 import { registerAccountReader } from '../lib/webmcp';
 import { ForecastPanel } from './forecast-panel';
+import { MonitorPanel, type FundingSettings } from './monitor-panel';
 
 type Message =
   | { role: 'user'; text: string }
@@ -32,10 +33,16 @@ const suggestions = [
   'Why is my available balance lower?',
   'Show recent transactions',
   'Will my bills be covered?',
+  'How can I cover the shortfall?',
 ];
 
 export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
   const [demo, setDemo] = useState(initialDemo);
+  const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
+    enabled: true,
+    savingsMinimumCents: 100000,
+    timing: 'standard',
+  });
   const snapshot = demo.snapshot;
   const [forecastBusy, setForecastBusy] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
@@ -65,6 +72,7 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
           message,
           scenario: demo.scenario,
           corrections: demo.corrections,
+          monitoring: fundingSettings,
         }),
         signal: AbortSignal.timeout(15000),
       });
@@ -219,6 +227,15 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
                 your checking account’s available balance.
               </p>
             </div>
+            <MonitorPanel
+              demo={demo}
+              settings={fundingSettings}
+              onSettings={(settings) => {
+                setFundingSettings(settings);
+                setMessages([]);
+              }}
+              busy={busy || forecastBusy}
+            />
             <ForecastPanel
               demo={demo}
               busy={busy || forecastBusy}
@@ -307,11 +324,13 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
                   message.reply?.reads.length ? (
                     <span className="read-receipt">
                       <ShieldCheck size={13} /> Read synthetic{' '}
-                      {message.reply.reads[0] === 'get_forecast'
-                        ? 'balance forecast'
-                        : message.reply.reads[0] === 'get_accounts'
-                          ? 'account balances'
-                          : 'transaction history'}{' '}
+                      {message.reply.reads[0] === 'get_funding_proposal'
+                        ? 'funding proposal'
+                        : message.reply.reads[0] === 'get_forecast'
+                          ? 'balance forecast'
+                          : message.reply.reads[0] === 'get_accounts'
+                            ? 'account balances'
+                            : 'transaction history'}{' '}
                       · {message.reply.asOf?.slice(0, 10)} snapshot
                     </span>
                   ) : null}

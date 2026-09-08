@@ -1,6 +1,6 @@
 # PennyAhead milestone plan
 
-**Status: M1a and M2 are implemented and verified locally.** Live Strands integration (M1b) awaits credential setup; provider sandbox access and M3–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
+**Status: M1a, M2 and the local M3a monitoring/proposal flow are implemented.** Live Strands integration (M1b/M3b) awaits credential setup; provider sandbox access and M4–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
 
 ## M1 — Runnable foundation and demo accounts
 
@@ -15,7 +15,7 @@
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 
-**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current M2 build passes 28 backend/API tests, four production-browser checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
+**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current M3a build passes 44 backend/API tests, nine production checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
 
 **Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 
@@ -37,13 +37,15 @@
 
 **Target: September 10. Depends on M2.**
 
-- [ ] Run monitoring independently of the chat interface.
-- [ ] Generate an in-app alert when a meaningful shortage appears.
-- [ ] Give Strands tools to inspect forecasts, compare funding accounts, and check transfer timing.
-- [ ] Produce a proposal containing amount, source, destination, expected arrival, and remaining savings.
-- [ ] Suppress duplicate alerts for an unchanged situation.
+- [x] M3a: Run local server monitoring independently of the chat interface, with persisted isolated demo monitors.
+- [x] Generate an in-app alert when a meaningful shortage appears.
+- [ ] M3b: Give Strands tools to inspect forecasts, compare funding accounts, and check transfer timing. Read-only domain functions are implemented and tested; SDK registration and model-selected calls await M1b.
+- [x] Produce a deterministic demo proposal containing amount, source, destination, expected arrival, and remaining savings.
+- [x] Suppress duplicate alerts for an unchanged situation, including overlapping checks and local server restarts.
 
 **Completion criterion:** An upcoming bill triggers an alert without user prompting, and the assistant proposes a transfer that respects the user's savings minimum.
+
+**Local demo scope:** The background timer checks every five seconds; the default proposal is $35.36 with $1,814.64 remaining savings. Savings-floor and delayed-arrival cases block the proposal. Alert acknowledgement is not approval. The local flow uses mock decisions and simulated timing, and does not complete the live Strands criterion. See [monitoring and proposal contracts](docs/MONITORING.md) for persistence, concurrency, timing assumptions and deployment limits.
 
 ## M4 — Approved sandbox transfers
 

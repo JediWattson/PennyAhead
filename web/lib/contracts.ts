@@ -62,7 +62,12 @@ export interface AssistantReply {
   source: DataSource;
   asOf: string | null;
   /** Deterministic backend reads, not Strands/model tool calls. */
-  reads: Array<'get_accounts' | 'get_transactions' | 'get_forecast'>;
+  reads: Array<
+    | 'get_accounts'
+    | 'get_transactions'
+    | 'get_forecast'
+    | 'get_funding_proposal'
+  >;
 }
 export type DemoScenario = 'shortfall' | 'sufficient' | 'uncertain' | 'stale';
 export interface BillCorrection {
@@ -126,4 +131,52 @@ export interface Assistant {
     message: string,
     options?: DemoOptions,
   ): Promise<AssistantReply>;
+}
+
+export interface MonitorConfig extends DemoOptions {
+  enabled: boolean;
+  savingsMinimumCents: number;
+  timing: 'standard' | 'delayed';
+}
+export interface FundingCandidate {
+  accountId: string;
+  name: string;
+  spendableCents: number;
+  remainingCents: number;
+  eligible: boolean;
+  reason: string;
+}
+export interface FundingPlan {
+  mode: 'deterministic-demo';
+  status: 'proposed' | 'blocked' | 'no_shortfall';
+  reason: string;
+  amountCents: number;
+  sourceAccountId: string | null;
+  destinationAccountId: string;
+  expectedArrival: string;
+  neededBefore: string | null;
+  remainingSavingsCents: number | null;
+  savingsMinimumCents: number;
+  candidates: FundingCandidate[];
+  forecastStatus: ForecastReport['status'];
+}
+export interface MonitorAlert {
+  id: string;
+  createdAt: string;
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+  plan: FundingPlan;
+}
+export interface MonitorState {
+  id: string;
+  revision: number;
+  config: MonitorConfig;
+  createdAt: string;
+  expiresAt: string;
+  nextRunAt: string;
+  lastCheckedAt: string | null;
+  checkCount: number;
+  error: string | null;
+  plan: FundingPlan | null;
+  alerts: MonitorAlert[];
 }

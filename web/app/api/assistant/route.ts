@@ -1,6 +1,7 @@
 import { bankProvider, DEMO_OWNER_ID } from '../../../lib/server/fixtures.ts';
 import { MockAssistant } from '../../../lib/server/mock-assistant.ts';
 import { parseDemoOptions } from '../../../lib/server/demo-forecast.ts';
+import { parseMonitorConfig } from '../../../lib/server/funding.ts';
 const assistant = new MockAssistant(bankProvider);
 export async function POST(request: Request) {
   let body: unknown;
@@ -25,8 +26,12 @@ export async function POST(request: Request) {
   // No owner/account IDs are accepted from the browser or the assistant.
   try {
     const options = parseDemoOptions(body);
+    const monitoring =
+      'monitoring' in body
+        ? parseMonitorConfig({ ...(body.monitoring as object), ...options })
+        : undefined;
     return Response.json(
-      await assistant.reply(DEMO_OWNER_ID, body.message, options),
+      await assistant.reply(DEMO_OWNER_ID, body.message, options, monitoring),
       {
         headers: { 'Cache-Control': 'no-store' },
       },

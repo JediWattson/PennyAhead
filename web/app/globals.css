@@ -920,3 +920,125 @@ summary:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+
+.monitor-section {
+  margin-bottom: 28px;
+}
+.monitor-section h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.monitor-card {
+  padding: 22px;
+  border: 1px solid #cfdbd6;
+  border-radius: 16px;
+  background: #fff;
+}
+.monitor-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.monitor-description {
+  color: #5c7064;
+  font-size: 0.875rem;
+  margin-top: 8px;
+}
+.monitor-meta {
+  color: #667789;
+  font-size: 0.75rem;
+  margin-top: 10px;
+  line-height: 1.6;
+}
+.funding-proposal {
+  margin-top: 20px;
+  padding: 18px;
+  background: #f1f7ed;
+  border: 1px solid #d7e6cd;
+  border-radius: 12px;
+}
+.funding-proposal.blocked {
+  background: #fff7ea;
+  border-color: #eddcbe;
+}
+.funding-proposal h3 {
+  font-size: 1.15rem;
+  font-weight: 650;
+}
+.funding-proposal > p:not(.eyebrow):not(.monitor-meta) {
+  font-size: 0.875rem;
+  color: #526856;
+}
+.proposal-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-block: 18px;
+}
+.proposal-details dt {
+  font-size: 0.75rem;
+  color: #627260;
+}
+.proposal-details dd {
+  margin: 3px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.proposal-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+}
+.proposal-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.funding-proposal button {
+  margin-top: 14px;
+}
+.monitor-settings,
+.monitor-history {
+  margin-top: 18px;
+  font-size: 0.875rem;
+}
+.monitor-settings form {
+  margin-block: 14px;
+}
+.monitor-settings button {
+  margin-top: 12px;
+}
+.monitor-settings select {
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  font: inherit;
+}
+.monitor-history ul {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+.monitor-history li {
+  padding: 10px 0;
+  border-top: 1px solid #e6ece8;
+}
+.monitor-history li span {
+  display: block;
+  color: #62748a;
+  font-size: 0.75rem;
+}
+@media (max-width: 440px) {
+  .monitor-card {
+    padding: 17px 13px;
+  }
+  .funding-proposal {
+    padding: 14px 12px;
+  }
+}

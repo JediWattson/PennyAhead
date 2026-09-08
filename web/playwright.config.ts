@@ -13,7 +13,10 @@ export default defineConfig({
     command: 'npm start -- --hostname 127.0.0.1 --port 3001',
     url: 'http://127.0.0.1:3001',
     reuseExistingServer: false,
-    env: { NEXT_TELEMETRY_DISABLED: '1' },
+    env: {
+      NEXT_TELEMETRY_DISABLED: '1',
+      PENNYAHEAD_MONITOR_DB: 'work/e2e-monitor.sqlite',
+    },
     timeout: 30000,
   },
 });

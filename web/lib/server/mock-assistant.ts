@@ -3,10 +3,12 @@ import type {
   AssistantReply,
   BankDataProvider,
   DemoOptions,
+  MonitorConfig,
 } from '../contracts.ts';
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
 import { FixtureBankProvider, DEMO_NOW } from './fixtures.ts';
+import { buildFundingPlan } from './funding.ts';
 
 /** Deliberately deterministic. Replace this adapter in M1b. */
 export class MockAssistant implements Assistant {
@@ -19,6 +21,7 @@ export class MockAssistant implements Assistant {
     ownerId: string,
     message: string,
     options?: DemoOptions,
+    monitoring?: MonitorConfig,
   ): Promise<AssistantReply> {
     const query = message.trim().toLowerCase();
     const base: AssistantReply = {
@@ -28,6 +31,37 @@ export class MockAssistant implements Assistant {
       asOf: null,
       reads: [],
     };
+    if (
+      /\b(proposal|cover|funding)\b/.test(query) &&
+      !/\b(approve|execute|send)\b/.test(query)
+    ) {
+      const config: MonitorConfig = monitoring ?? {
+        scenario: options?.scenario ?? 'shortfall',
+        corrections: options?.corrections ?? [],
+        enabled: true,
+        savingsMinimumCents: 100000,
+        timing: 'standard',
+      };
+      const snapshot = await (
+        options ? new FixtureBankProvider(options.scenario) : this.bank
+      ).getSnapshot(ownerId);
+      const plan = buildFundingPlan(ownerId, snapshot, config, DEMO_NOW);
+      const source = snapshot.accounts.find(
+        (a) => a.id === plan.sourceAccountId,
+      );
+      const destination = snapshot.accounts.find(
+        (a) => a.id === plan.destinationAccountId,
+      );
+      return {
+        ...base,
+        asOf: snapshot.asOf,
+        reads: ['get_funding_proposal'],
+        text:
+          plan.status === 'proposed'
+            ? `A demo proposal would move ${formatMoney(plan.amountCents)} from ${source?.name} to ${destination?.name}. Estimated arrival: ${plan.expectedArrival}, before the earliest projected shortage on ${plan.neededBefore}. Savings would retain ${formatMoney(plan.remainingSavingsCents!)} above your ${formatMoney(plan.savingsMinimumCents)} minimum.\n\nTiming is simulated, not a bank quote. This is a deterministic proposal only, not approval. No transfer was created; the bill is not yet covered.`
+            : `${plan.reason}\n\nNo transfer was created. These are deterministic demo checks, not live AI decisions.`,
+      };
+    }
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
       return {
         ...base,

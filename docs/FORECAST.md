@@ -50,4 +50,4 @@ Corrections live in the current browser page's state and are sent with each fore
 
 The chart covers detected bills and explicitly reconciled pending activity. It does not predict discretionary spending, fees, unrecorded bills, or future income. A positive result means those detected charges fit the supplied balance; it is not a guarantee that an account will remain positive.
 
-M2 does not complete live Strands integration, independent background monitoring, funding proposals, or provider transfers. Those remain separate milestones.
+M2 does not complete live Strands integration, independent background monitoring, funding proposals, or provider transfers. The local monitoring and proposal follow-on is documented in [the M3 contract](MONITORING.md); live model access and provider transfers remain separate integration milestones.

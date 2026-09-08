@@ -6,7 +6,7 @@ PennyAhead is a proposed U.S. consumer banking assistant for the [Agents for Hum
 
 ## Project status
 
-Project created September 8, 2026. The local application contains two synthetic accounts, recurring bill detection, a 14-day balance forecast, user corrections, and a clearly labeled mock assistant. OpenAI is selected as the initial Strands model provider, with a path to Amazon Bedrock; live model access is still pending. Bank integrations, transfers, background monitoring, and deployment are not yet implemented.
+Project created September 8, 2026. The local application contains two synthetic accounts, recurring bill detection, a 14-day balance forecast, user corrections, background monitoring, funding proposals, and a clearly labeled mock assistant. OpenAI is selected as the initial Strands model provider, with a path to Amazon Bedrock; live model access is still pending. Bank integrations, transfers, and deployment are not yet implemented.
 
 ## Run locally
 
@@ -22,6 +22,8 @@ Open the local URL printed by the server (normally `http://localhost:3000`). No 
 If a restricted environment reports `Watchpack Error: EMFILE` or repeatedly restarts the server, enable polling with `WATCHPACK_POLLING=true npm --prefix web run dev`. Normal local development can use the command above.
 
 Try **What are my balances?**, **Why is my available balance lower?**, **Show recent transactions**, or **Will my bills be covered?** The mock reads backend fixture data and forecast calculations; its scripted responses are not live AI. Transfer requests are identified as unavailable.
+
+Without opening chat, wait a few seconds for **Looking ahead for you** to propose $35.36 from savings with $1,814.64 remaining. The server checks independently every five seconds and persists alert history locally. Open **Monitoring preferences** to test a higher savings minimum, delayed transfer timing, or pause/resume. Ask **How can I cover the shortfall?** to hear the mock explain the same checks. Proposals do not move money; arrival timing is simulated. See [the M3 monitoring contract](docs/MONITORING.md) for the 24-hour demo retention, restart behavior and local-server requirement.
 
 The scenario selector demonstrates a shortfall, sufficient funds, uncertain payment dates, and stale data. Expand a bill to inspect its history or correct its amount/date. Corrections apply to this page's demo session and the assistant's next answer; reload or reset to return to the original data. The default scenario projects a **$35.36 shortfall**, first appearing **September 18**. See [the forecast contract](docs/FORECAST.md) for calculation rules and limitations.
 
@@ -43,7 +45,7 @@ npm --prefix web run build
 npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 28 backend/API tests and four production-browser checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, and API validation. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 44 backend/API tests and nine production checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
 
 To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
 
