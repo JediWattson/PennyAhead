@@ -14,9 +14,15 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import type { AssistantReply, BankSnapshot } from '../lib/contracts';
+import type {
+  AssistantReply,
+  DemoForecast,
+  DemoOptions,
+  DemoScenario,
+} from '../lib/contracts';
 import { formatMoney } from '../lib/money';
 import { registerAccountReader } from '../lib/webmcp';
+import { ForecastPanel } from './forecast-panel';
 
 type Message =
   | { role: 'user'; text: string }
@@ -25,9 +31,15 @@ const suggestions = [
   'What are my balances?',
   'Why is my available balance lower?',
   'Show recent transactions',
+  'Will my bills be covered?',
 ];
 
-export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
+export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
+  const [demo, setDemo] = useState(initialDemo);
+  const snapshot = demo.snapshot;
+  const [forecastBusy, setForecastBusy] = useState(false);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+  const forecastInFlight = useRef(false);
   useEffect(() => registerAccountReader(snapshot), [snapshot]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,12 +48,12 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      text: 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances or recent activity. I’m using mock responses and synthetic data for now.',
+      text: 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. I’m using mock responses and synthetic data for now.',
     },
   ]);
 
   async function ask(message: string) {
-    if (inFlight.current || !message.trim()) return;
+    if (inFlight.current || forecastInFlight.current || !message.trim()) return;
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -49,7 +61,11 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          scenario: demo.scenario,
+          corrections: demo.corrections,
+        }),
         signal: AbortSignal.timeout(15000),
       });
       if (!response.ok) throw new Error('The assistant could not answer.');
@@ -73,6 +89,34 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
     event.preventDefault();
     void ask(draft);
   }
+  async function changeDemo(options: DemoOptions): Promise<boolean> {
+    if (inFlight.current || forecastInFlight.current) return false;
+    forecastInFlight.current = true;
+    setForecastBusy(true);
+    setForecastError(null);
+    try {
+      const response = await fetch('/api/forecast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!response.ok) throw new Error('Invalid correction');
+      const next: DemoForecast = await response.json();
+      setDemo(next);
+      setMessages([]);
+      setError(null);
+      return true;
+    } catch {
+      setForecastError(
+        'The forecast could not be updated. Check your dates and amounts, then try again. Your previous forecast is still shown.',
+      );
+      return false;
+    } finally {
+      forecastInFlight.current = false;
+      setForecastBusy(false);
+    }
+  }
 
   return (
     <div className="app-shell">
@@ -94,7 +138,7 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
             <p className="eyebrow">YOUR MONEY, IN VIEW</p>
             <h1>
               Your accounts.
-              <br />A little more clarity.
+              <br /> A little more clarity.
             </h1>
             <p className="intro">
               Welcome back, Alex. Here’s where your accounts stand.
@@ -102,11 +146,38 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
           </div>
           <div className="snapshot-note">
             <span className="status-dot" />
-            Fixed demo snapshot
+            Fixed demo clock
             <br />
             <strong>September 8, 2026 · 4:00 p.m. UTC</strong>
           </div>
         </div>
+        <div className="scenario-controls">
+          <label htmlFor="scenario">Demo scenario</label>
+          <select
+            id="scenario"
+            value={demo.scenario}
+            disabled={busy || forecastBusy}
+            onChange={(event) => {
+              void changeDemo({
+                scenario: event.target.value as DemoScenario,
+                corrections: [],
+              });
+            }}
+          >
+            <option value="shortfall">Subscription shortfall</option>
+            <option value="sufficient">Sufficient funds</option>
+            <option value="uncertain">Uncertain payment dates</option>
+            <option value="stale">Stale account data</option>
+          </select>
+          <span>All scenarios use synthetic data.</span>
+          <a href="#assistant-heading">Ask assistant</a>
+          {forecastBusy && <output>Updating forecast…</output>}
+        </div>
+        {forecastError && (
+          <p className="error-message" role="alert">
+            {forecastError}
+          </p>
+        )}
         <div className="dashboard-grid">
           <section className="overview" aria-label="Account overview">
             <div className="section-heading">
@@ -148,6 +219,11 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
                 your checking account’s available balance.
               </p>
             </div>
+            <ForecastPanel
+              demo={demo}
+              busy={busy || forecastBusy}
+              change={changeDemo}
+            />
             <section className="activity" aria-labelledby="activity-heading">
               <div className="section-heading">
                 <h2 id="activity-heading">Recent activity</h2>
@@ -231,10 +307,12 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
                   message.reply?.reads.length ? (
                     <span className="read-receipt">
                       <ShieldCheck size={13} /> Read synthetic{' '}
-                      {message.reply.reads[0] === 'get_accounts'
-                        ? 'account balances'
-                        : 'transaction history'}{' '}
-                      · Sep 8 snapshot
+                      {message.reply.reads[0] === 'get_forecast'
+                        ? 'balance forecast'
+                        : message.reply.reads[0] === 'get_accounts'
+                          ? 'account balances'
+                          : 'transaction history'}{' '}
+                      · {message.reply.asOf?.slice(0, 10)} snapshot
                     </span>
                   ) : null}
                 </article>
@@ -254,7 +332,7 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
                     key={suggestion}
                     variant="outline"
                     className="suggestion"
-                    disabled={busy}
+                    disabled={busy || forecastBusy}
                     onClick={() => {
                       setDraft(suggestion);
                       void ask(suggestion);
@@ -273,7 +351,7 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
                   id="question"
                   value={draft}
                   maxLength={1000}
-                  disabled={busy}
+                  disabled={busy || forecastBusy}
                   onChange={(event) => setDraft(event.target.value)}
                   placeholder="Ask about your accounts…"
                 />
@@ -281,7 +359,7 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
                   type="submit"
                   size="icon"
                   aria-label="Send message"
-                  disabled={busy || !draft.trim()}
+                  disabled={busy || forecastBusy || !draft.trim()}
                 >
                   <ArrowRight size={20} />
                 </Button>
@@ -293,7 +371,7 @@ export function Dashboard({ snapshot }: { snapshot: BankSnapshot }) {
               )}
               <p className="assistant-footnote">
                 <MessageCircle size={13} />
-                Balances & activity now. Live Strands AI later.
+                Balances, bills & forecasts · Mock assistant
               </p>
             </div>
           </aside>

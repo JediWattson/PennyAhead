@@ -90,18 +90,14 @@ void test('activity and empty savings history stay scoped to the selected accoun
   assert.doesNotMatch(savings.text, /Neighborhood/);
 });
 
-void test('unsupported requests do not pretend to forecast, transfer, or invoke a model', async () => {
+void test('unsupported requests do not pretend to transfer or invoke a model', async () => {
   const assistant = new MockAssistant({
     source: 'synthetic',
     getSnapshot() {
       throw new Error('Unexpected bank read');
     },
   });
-  for (const prompt of [
-    'Transfer $50 from savings',
-    'Will my bills be covered?',
-    'Write a poem',
-  ]) {
+  for (const prompt of ['Transfer $50 from savings', 'Write a poem']) {
     const reply = await assistant.reply(DEMO_OWNER_ID, prompt);
     assert.deepEqual(reply.reads, []);
     assert.equal(reply.asOf, null);

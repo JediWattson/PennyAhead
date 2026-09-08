@@ -1,6 +1,6 @@
 # PennyAhead milestone plan
 
-**Status: M1a is implemented and verified locally.** Live Strands integration (M1b) is deferred; provider sandbox access and M2–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
+**Status: M1a and M2 are implemented and verified locally.** Live Strands integration (M1b) awaits credential setup; provider sandbox access and M3–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
 
 ## M1 — Runnable foundation and demo accounts
 
@@ -8,28 +8,30 @@
 
 - [x] Create the repository, license, README, and application skeleton. The Next.js/TypeScript app with shadcn/ui runs locally.
 - [x] M1a: Build a local mock assistant that reads balances through the bank-data interface. Clearly label its deterministic responses as mock behavior; no model credentials are required.
-- [ ] M1b (deferred): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. Select the provider and credentials when starting this substep.
+- [ ] M1b (credential setup pending): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. OpenAI is the selected initial provider, with a provider boundary for Amazon Bedrock later; the secure-key setup flow is not yet verified complete.
 - [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
 - [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Transfer execution is not implemented.
 - [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Setup prerequisites](docs/INTEGRATIONS.md) are documented; credentials and live sandbox verification remain pending.
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 
-**Local verification:** Eight backend/API tests, TypeScript checking, application lint, and the Next.js production build pass. Both `next dev` and `next start` serve account data and mock replies over HTTP and reject empty messages. Production CSS and JavaScript assets load successfully. Browser interaction and visual QA have not been performed.
+**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current M2 build passes 28 backend/API tests, four production-browser checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
 
-**Live integration criterion (M1b, deferred):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
+**Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 
 ## M2 — Upcoming bills and shortage forecasting
 
 **Target: September 9. Depends on M1.**
 
-- [ ] Detect recurring payments from transaction history.
-- [ ] Display estimated dates and amounts, with user corrections.
-- [ ] Calculate a 14-day balance forecast using available funds and upcoming activity.
-- [ ] Reconcile pending activity without counting it twice.
-- [ ] Show the projected shortage and the underlying evidence.
+- [x] Detect recurring payments from transaction history.
+- [x] Display estimated dates and amounts, with user corrections.
+- [x] Calculate a 14-day balance forecast using available funds and upcoming activity.
+- [x] Reconcile pending activity without counting it twice.
+- [x] Show the projected shortage and the underlying evidence.
 
 **Completion criterion:** A repeatable scenario correctly predicts a subscription shortfall. Focused tests cover sufficient funds, insufficient funds, uncertain dates, and stale account data.
+
+**Verified scenario:** Five inferred monthly bills total $183.96 against $148.60 available checking, producing the first shortfall on September 18 and a maximum shortage of $35.36. Corrections update the chart and mock assistant together. Sufficient-funds, date-uncertainty, stale-data, reconciliation, and invalid-input tests pass. See [the forecast contract](docs/FORECAST.md) for the monthly-only detector, pending semantics, and fixed demo clock.
 
 ## M3 — Proactive monitoring and funding proposals
 

@@ -6,7 +6,7 @@ PennyAhead is a proposed U.S. consumer banking assistant for the [Agents for Hum
 
 ## Project status
 
-Project created September 8, 2026. The local M1a application contains two synthetic accounts, transaction history, and a clearly labeled mock assistant. Live Strands model access is deferred to M1b. Bank integrations, transfers, forecasting, monitoring, and deployment are not yet implemented.
+Project created September 8, 2026. The local application contains two synthetic accounts, recurring bill detection, a 14-day balance forecast, user corrections, and a clearly labeled mock assistant. OpenAI is selected as the initial Strands model provider, with a path to Amazon Bedrock; live model access is still pending. Bank integrations, transfers, background monitoring, and deployment are not yet implemented.
 
 ## Run locally
 
@@ -21,7 +21,9 @@ Open the local URL printed by the server (normally `http://localhost:3000`). No 
 
 If a restricted environment reports `Watchpack Error: EMFILE` or repeatedly restarts the server, enable polling with `WATCHPACK_POLLING=true npm --prefix web run dev`. Normal local development can use the command above.
 
-Try **What are my balances?**, **Why is my available balance lower?**, or **Show recent transactions**. The mock reads the backend fixture data; its small set of scripted responses is not live AI. Unsupported forecasts and transfer requests are identified as unavailable.
+Try **What are my balances?**, **Why is my available balance lower?**, **Show recent transactions**, or **Will my bills be covered?** The mock reads backend fixture data and forecast calculations; its scripted responses are not live AI. Transfer requests are identified as unavailable.
+
+The scenario selector demonstrates a shortfall, sufficient funds, uncertain payment dates, and stale data. Expand a bill to inspect its history or correct its amount/date. Corrections apply to this page's demo session and the assistant's next answer; reload or reset to return to the original data. The default scenario projects a **$35.36 shortfall**, first appearing **September 18**. See [the forecast contract](docs/FORECAST.md) for calculation rules and limitations.
 
 The fixed September 8 snapshot contains checking with **$148.60 available** and **$179.10 current**, savings with **$1,850.00**, and 19 transactions, including three months of recurring merchant history. A **$30.50 pending debit** is already deducted from available checking. History is a sample, not a complete ledger for reconstructing balances. Reloading clears the browser's conversation; the read-only fixture itself is unchanged.
 
@@ -41,7 +43,15 @@ npm --prefix web run build
 npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. The eight automated tests cover data isolation, current provider reads, pending balances, account selection, unsupported actions, money representation, and API validation. HTTP smoke checks pass; browser interaction and visual QA have not been performed.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 28 backend/API tests and four production-browser checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, and API validation. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+
+To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
+
+```sh
+cd web
+npx playwright install chromium --only-shell
+npm run test:e2e
+```
 
 See [integration checkpoints](docs/INTEGRATIONS.md) for the deferred model setup and Plaid/Dwolla sandbox prerequisites. An optional `read_demo_accounts` WebMCP tool exposes the same visible synthetic snapshot in compatible browsers; ordinary browsers work without it. Its browser registration has not been verified in a supported WebMCP context.
 
@@ -77,7 +87,7 @@ Also demonstrate a savings-minimum restriction and a transfer that would arrive 
 - **Transfer integration candidate:** Dwolla for transfers between the same customer's bank accounts.
 - **Deployment target:** a judge-accessible application; evaluate Amazon Bedrock AgentCore once the complete flow is stable.
 
-The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The planned live agent uses the **Strands TypeScript SDK**. The initial mock assistant needs no model access; model provider and credentials will be selected in deferred substep M1b. No API keys or real financial information belong in this repository.
+The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The planned live agent uses the **Strands TypeScript SDK**, initially with **OpenAI**, while keeping provider selection separate so Amazon Bedrock can be added later. The current mock assistant needs no model access; credential setup and live integration remain pending in M1b. No API keys or real financial information belong in this repository.
 
 Financial calculations and authorization belong in backend code. Approvals must bind to the exact accounts and amount. Retries and concurrent monitor runs must not duplicate a transfer. Pending transfers must not be presented as money received. Subscription dates and transfer arrival dates are estimates unless confirmed.
 

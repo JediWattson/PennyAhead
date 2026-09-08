@@ -2,13 +2,14 @@
 
 ## M1a — Local mock
 
-No credentials are needed. The app reads a fixed synthetic snapshot through `BankDataProvider`. `MockAssistant` dispatches a small set of supported questions to those backend reads. It does not load Strands, call a model, or create transfers. The UI and API explicitly identify mock responses and synthetic data.
+No credentials are needed. The app reads a fixed synthetic snapshot through `BankDataProvider`. `MockAssistant` dispatches supported questions to backend balance, transaction, and M2 forecast calculations. It does not load Strands, call a model, or create transfers. The UI and API explicitly identify mock responses and synthetic data.
 
 The fixture owner is a public, read-only demo identity, not an authenticated bank customer. The bank provider rejects other owner IDs; API routes choose the fixture identity on the server. There is no production authentication or durable chat storage in M1a.
 
-## M1b — Live Strands (deferred)
+## M1b — Live Strands (credential setup pending)
 
-- [ ] Select the model provider and a credential profile for this project.
+- [x] Select OpenAI as the initial provider, using Strands with a provider boundary that can support Amazon Bedrock later.
+- [ ] Finish secure API-key setup and confirm a project-local secret destination. The setup picker was opened; a saved key and successful API access have not been verified.
 - [ ] Install the Strands TypeScript SDK and implement the `Assistant` interface with narrow, server-scoped tools.
 - [ ] Keep bank calculations in backend code and provide no browser/model parameter for changing the authenticated owner.
 - [ ] Verify a model-selected balance tool call against the fixture provider and record its result.

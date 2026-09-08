@@ -2,8 +2,11 @@ import type {
   Assistant,
   AssistantReply,
   BankDataProvider,
+  DemoOptions,
 } from '../contracts.ts';
 import { formatMoney } from '../money.ts';
+import { buildForecast } from './forecast.ts';
+import { FixtureBankProvider, DEMO_NOW } from './fixtures.ts';
 
 /** Deliberately deterministic. Replace this adapter in M1b. */
 export class MockAssistant implements Assistant {
@@ -12,7 +15,11 @@ export class MockAssistant implements Assistant {
     this.bank = bank;
   }
 
-  async reply(ownerId: string, message: string): Promise<AssistantReply> {
+  async reply(
+    ownerId: string,
+    message: string,
+    options?: DemoOptions,
+  ): Promise<AssistantReply> {
     const query = message.trim().toLowerCase();
     const base: AssistantReply = {
       mode: 'mock',
@@ -21,7 +28,7 @@ export class MockAssistant implements Assistant {
       asOf: null,
       reads: [],
     };
-    if (/\b(transfer|move|send|pay|approve)\b/.test(query)) {
+    if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
       return {
         ...base,
         text: 'Money movement is not available in this demo. No transfer was created. Approved sandbox transfers are planned for a later milestone.',
@@ -32,9 +39,28 @@ export class MockAssistant implements Assistant {
         query,
       )
     ) {
+      const snapshot = await (
+        options ? new FixtureBankProvider(options.scenario) : this.bank
+      ).getSnapshot(ownerId);
+      const account = snapshot.accounts.find(
+        (entry) => entry.kind === 'checking',
+      );
+      if (!account) throw new Error('Checking account unavailable');
+      const forecast = buildForecast(
+        snapshot,
+        account.id,
+        DEMO_NOW,
+        options?.corrections,
+      );
+      const summary =
+        forecast.shortageCents > 0
+          ? `Checking is projected to fall below zero on ${forecast.firstShortfall}, with a maximum shortage of ${formatMoney(forecast.shortageCents)} over 14 days.`
+          : `Checking is projected to end the 14 days at ${formatMoney(forecast.endingCents)} after the detected bills.`;
       return {
         ...base,
-        text: 'Bill detection and the 14-day forecast are planned for M2. This mock can show balances, pending activity, and recent transactions; it cannot yet tell you whether upcoming bills are covered.',
+        asOf: snapshot.asOf,
+        reads: ['get_forecast'],
+        text: `${summary}\n\n${forecast.warnings.join(' ')}\n\nThis is a deterministic forecast of synthetic data using the September 8 demo clock and your current corrections. It excludes unrecorded spending and unconfirmed income. No transfer was created.`,
       };
     }
     if (
@@ -47,7 +73,9 @@ export class MockAssistant implements Assistant {
         text: 'I’m a mock assistant with a few supported questions. Try “What are my balances?”, “Why is my available balance lower?”, or “Show recent transactions”. Live AI is a separate setup step.',
       };
     }
-    const snapshot = await this.bank.getSnapshot(ownerId);
+    const snapshot = await (
+      options ? new FixtureBankProvider(options.scenario) : this.bank
+    ).getSnapshot(ownerId);
     const context = { ...base, asOf: snapshot.asOf };
     const asksSavings = /\b(saving|savings)\b/.test(query);
     const asksChecking = /\bchecking\b/.test(query);
@@ -83,7 +111,7 @@ export class MockAssistant implements Assistant {
     return {
       ...context,
       reads: ['get_accounts'],
-      text: `${text}\n\nThese are synthetic balances from the fixed September 8 demo snapshot.`,
+      text: `${text}\n\nThese are synthetic balances from the ${snapshot.asOf.slice(0, 10)} demo snapshot.`,
     };
   }
 }

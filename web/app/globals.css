@@ -640,3 +640,283 @@ footer {
     flex-wrap: wrap;
   }
 }
+
+.scenario-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+  font-size: 0.875rem;
+}
+.scenario-controls label {
+  font-weight: 650;
+}
+.scenario-controls select {
+  max-width: 100%;
+  min-height: 42px;
+  padding: 8px 34px 8px 12px;
+  background: #fff;
+  border: 1px solid #cbd7d0;
+  border-radius: 8px;
+  color: #243c32;
+  font: inherit;
+}
+.scenario-controls > span {
+  color: #657587;
+}
+.scenario-controls output {
+  color: #476957;
+}
+.forecast-section {
+  margin: 0 0 30px;
+}
+.forecast-card {
+  border: 1px solid #cfdbd6;
+  border-radius: 16px;
+  padding: 22px;
+  background: #fff;
+}
+.forecast-card.shortfall {
+  border-top: 4px solid #b26c22;
+}
+.forecast-card.stale,
+.forecast-card.incomplete {
+  border-top: 4px solid #9c6428;
+}
+.forecast-card.sufficient {
+  border-top: 4px solid #317452;
+}
+.forecast-verdict h3 {
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.5px;
+}
+.forecast-verdict > p:last-child {
+  font-size: 0.875rem;
+  color: #617183;
+  margin-top: 7px;
+}
+.forecast-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0 6px;
+}
+.forecast-metrics span {
+  display: block;
+  font-size: 0.8rem;
+  color: #617184;
+}
+.forecast-metrics strong {
+  display: block;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+  margin-top: 3px;
+}
+.balance-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 14px 0 6px;
+  overflow: visible;
+}
+.balance-chart text {
+  fill: #687b8b;
+  font-size: 12px;
+}
+.balance-line {
+  fill: none;
+  stroke: #195d46;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.cautious-line {
+  fill: none;
+  stroke: #ac7835;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+.zero-line {
+  stroke: #bac6ca;
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.chart-legend,
+.freshness {
+  color: #647a70;
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+.forecast-warnings {
+  font-size: 0.875rem;
+  color: #83551f;
+  background: #fff6e7;
+  padding: 14px 16px 14px 30px;
+  border-radius: 8px;
+  margin: 14px 0;
+}
+.forecast-warnings li + li {
+  margin-top: 8px;
+}
+.daily-balances {
+  margin-top: 16px;
+  font-size: 0.875rem;
+}
+summary {
+  cursor: pointer;
+}
+summary:focus-visible {
+  outline: 2px solid #237864;
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+.daily-balances table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.daily-balances td,
+.daily-balances th {
+  padding: 7px 8px;
+  border-bottom: 1px solid #e7edf0;
+  text-align: right;
+}
+.daily-balances td:first-child,
+.daily-balances th:first-child {
+  text-align: left;
+}
+.forecast-limits {
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: #687889;
+  margin-top: 15px;
+}
+.upcoming-heading {
+  margin-top: 25px;
+}
+.bill-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+}
+.bill-row {
+  padding: 17px 20px;
+  border-bottom: 1px solid #e7edf0;
+}
+.bill-row:last-child {
+  border-bottom: 0;
+}
+.bill-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+.bill-top h3 {
+  font-size: 0.95rem;
+  font-weight: 650;
+}
+.bill-top p {
+  font-size: 0.8rem;
+  color: #66798b;
+}
+.bill-top > strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.bill-top .uncertain-note {
+  color: #986323;
+  margin-top: 5px;
+}
+.bill-row.excluded {
+  background: #f5f7f8;
+}
+.bill-row.excluded .bill-top > strong {
+  text-decoration: line-through;
+}
+.bill-evidence,
+.bill-editor {
+  font-size: 0.875rem;
+  margin-top: 10px;
+  color: #546d5c;
+}
+.bill-evidence ul {
+  margin: 8px 0;
+  padding-left: 20px;
+  color: #66798b;
+}
+.bill-editor form {
+  background: #f4f7f5;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 10px;
+}
+.bill-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.bill-fields label {
+  font-size: 0.875rem;
+  color: #334c40;
+}
+.bill-fields input {
+  margin-top: 4px;
+  min-height: 40px;
+  background: #fff;
+  font-size: 1rem;
+}
+.bill-enabled {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0;
+  font-size: 0.875rem;
+}
+.bill-editor button[type='submit'] {
+  min-height: 38px;
+  padding: 8px 14px;
+}
+.correction-note {
+  color: #667b8a;
+  font-size: 0.8rem;
+  margin-top: 12px;
+}
+.correction-note button {
+  margin-top: 10px;
+}
+.assistant-panel {
+  position: sticky;
+  top: 20px;
+}
+@media (max-width: 780px) {
+  .assistant-panel {
+    position: static;
+  }
+}
+@media (max-width: 440px) {
+  .forecast-card {
+    padding: 17px 13px;
+  }
+  .forecast-metrics {
+    gap: 8px;
+  }
+  .forecast-metrics strong {
+    font-size: 1rem;
+  }
+  .bill-row {
+    padding: 16px 13px;
+  }
+  .bill-fields {
+    grid-template-columns: 1fr;
+  }
+}

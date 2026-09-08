@@ -20,6 +20,8 @@ export interface Transaction {
   date: string;
   status: 'posted' | 'pending';
   pendingTransactionId?: string;
+  /** Required for pending activity: whether the provider already reflected it in available funds. */
+  availableBalanceEffect?: 'included' | 'excluded' | 'unknown';
 }
 export interface BankSnapshot {
   source: DataSource;
@@ -60,8 +62,68 @@ export interface AssistantReply {
   source: DataSource;
   asOf: string | null;
   /** Deterministic backend reads, not Strands/model tool calls. */
-  reads: Array<'get_accounts' | 'get_transactions'>;
+  reads: Array<'get_accounts' | 'get_transactions' | 'get_forecast'>;
+}
+export type DemoScenario = 'shortfall' | 'sufficient' | 'uncertain' | 'stale';
+export interface BillCorrection {
+  billId: string;
+  amountCents: number;
+  nextDate: string;
+  enabled: boolean;
+}
+export interface DemoOptions {
+  scenario: DemoScenario;
+  corrections: BillCorrection[];
+}
+export interface DetectedBill {
+  id: string;
+  accountId: string;
+  merchant: string;
+  amountCents: number;
+  maximumCents: number;
+  nextDate: string;
+  earliestDate: string;
+  latestDate: string;
+  evidenceIds: string[];
+  uncertain: boolean;
+  corrected: boolean;
+  enabled: boolean;
+  overdue: boolean;
+  pendingTransactionId: string | null;
+}
+export interface ForecastDay {
+  date: string;
+  balanceCents: number;
+  cautiousBalanceCents: number;
+  billIds: string[];
+}
+export interface ForecastReport {
+  accountId: string;
+  evaluatedAt: string;
+  observedAt: string;
+  ageHours: number;
+  status: 'shortfall' | 'sufficient' | 'watch' | 'stale' | 'incomplete';
+  startingCents: number;
+  endingCents: number;
+  minimumCents: number;
+  shortageCents: number;
+  firstShortfall: string | null;
+  cautiousShortageCents: number;
+  cautiousFirstShortfall: string | null;
+  scheduledCents: number;
+  bills: DetectedBill[];
+  days: ForecastDay[];
+  warnings: string[];
+}
+export interface DemoForecast extends DemoOptions {
+  clock: 'fixed-demo';
+  snapshot: BankSnapshot;
+  forecast: ForecastReport;
 }
 export interface Assistant {
-  reply(ownerId: string, message: string): Promise<AssistantReply>;
+  reply(
+    ownerId: string,
+    message: string,
+    options?: DemoOptions,
+  ): Promise<AssistantReply>;
 }

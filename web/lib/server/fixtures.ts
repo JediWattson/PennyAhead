@@ -2,11 +2,13 @@ import type {
   BankDataProvider,
   BankSnapshot,
   Transaction,
+  DemoScenario,
 } from '../contracts.ts';
 
 // Public, read-only demo identity. This is not production authentication.
 export const DEMO_OWNER_ID = 'demo-alex';
-const AS_OF = '2026-09-08T16:00:00.000Z';
+export const DEMO_NOW = '2026-09-08T16:00:00.000Z';
+const AS_OF = DEMO_NOW;
 const subscriptions = [
   { merchant: 'Netflix', cents: 1999, day: 10 },
   { merchant: 'Spotify', cents: 1199, day: 12 },
@@ -59,6 +61,7 @@ const snapshot: BankSnapshot = {
       amountCents: -3050,
       date: AS_OF,
       status: 'pending' as const,
+      availableBalanceEffect: 'included' as const,
     },
     {
       id: 'txn-coffee',
@@ -89,9 +92,34 @@ const snapshot: BankSnapshot = {
 };
 export class FixtureBankProvider implements BankDataProvider {
   readonly source = 'synthetic' as const;
+  private scenario: DemoScenario;
+  constructor(scenario: DemoScenario = 'shortfall') {
+    this.scenario = scenario;
+  }
   async getSnapshot(ownerId: string): Promise<BankSnapshot> {
     if (ownerId !== DEMO_OWNER_ID) throw new Error('Demo owner not found');
-    return structuredClone(snapshot);
+    const result = structuredClone(snapshot);
+    if (this.scenario === 'sufficient') {
+      result.accounts[0].availableCents = 50000;
+      result.accounts[0].currentCents = 53050;
+    }
+    if (this.scenario === 'uncertain') {
+      result.transactions.find((txn) => txn.id === 'txn-6-3')!.date =
+        '2026-06-16T12:00:00.000Z';
+      result.transactions.find((txn) => txn.id === 'txn-7-3')!.date =
+        '2026-07-19T12:00:00.000Z';
+    }
+    if (this.scenario === 'stale') {
+      result.asOf = '2026-09-05T16:00:00.000Z';
+      for (const account of result.accounts) account.observedAt = result.asOf;
+      result.transactions = result.transactions.filter(
+        (txn) => txn.date <= result.asOf || txn.status === 'pending',
+      );
+      result.transactions.find((txn) => txn.status === 'pending')!.date =
+        result.asOf;
+    }
+    result.transactions.sort((a, b) => b.date.localeCompare(a.date));
+    return result;
   }
 }
 export const bankProvider = new FixtureBankProvider();
