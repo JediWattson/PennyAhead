@@ -2,28 +2,24 @@ import { getMonitorStore } from '../../../lib/server/monitor-store.ts';
 import { parseMonitorConfig } from '../../../lib/server/funding.ts';
 import { getDemoForecast } from '../../../lib/server/demo-forecast.ts';
 import { DEMO_OWNER_ID } from '../../../lib/server/fixtures.ts';
+import {
+  jsonResponse as respond,
+  monitorView,
+  sessionToken as token,
+} from '../../../lib/server/monitor-api.ts';
 
 export const runtime = 'nodejs';
-const respond = (data: unknown, status = 200) =>
-  Response.json(data, { status, headers: { 'Cache-Control': 'no-store' } });
-function token(request: Request) {
-  const value =
-    request.headers.get('Authorization')?.replace(/^Bearer /, '') ?? '';
-  return /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/.test(value)
-    ? value
-    : '';
-}
 export async function GET(request: Request) {
   const state = getMonitorStore().read(token(request));
   return state
-    ? respond(state)
+    ? respond(await monitorView(state))
     : respond({ error: 'Demo monitor not found or expired.' }, 404);
 }
 export async function POST(request: Request) {
   try {
     const config = parseMonitorConfig(await request.json());
     await getDemoForecast(DEMO_OWNER_ID, config); // validate corrections before persisting
-    return respond(getMonitorStore().create(config), 201);
+    return respond(await monitorView(getMonitorStore().create(config)), 201);
   } catch {
     return respond(
       {
@@ -44,7 +40,7 @@ export async function PATCH(request: Request) {
     if (body.action === 'acknowledge' && typeof body.alertId === 'string') {
       const state = store.acknowledge(token(request), body.alertId);
       return state
-        ? respond(state)
+        ? respond(await monitorView(state))
         : respond({ error: 'Active alert not found.' }, 404);
     }
     if (
@@ -57,7 +53,7 @@ export async function PATCH(request: Request) {
     await getDemoForecast(DEMO_OWNER_ID, config);
     const state = store.configure(token(request), config, body.revision);
     return state
-      ? respond(state)
+      ? respond(await monitorView(state))
       : respond({ error: 'Demo monitor expired.' }, 404);
   } catch {
     return respond(

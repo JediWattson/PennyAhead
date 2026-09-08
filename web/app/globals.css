@@ -1042,3 +1042,99 @@ summary:focus-visible {
     padding: 14px 12px;
   }
 }
+
+.transfer-section {
+  margin-top: 18px;
+}
+.approval-controls {
+  padding: 16px;
+  background: #f2f6f3;
+  border: 1px solid #d6e1d8;
+  border-radius: 10px;
+  font-size: 0.875rem;
+}
+.transfer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.transfer-actions button {
+  white-space: normal;
+  height: auto;
+  min-height: 40px;
+  padding: 9px 12px;
+}
+.transfer-history {
+  margin-top: 20px;
+}
+.transfer-history h3 {
+  font-weight: 650;
+}
+.transfer-history ul {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+}
+.transfer-history li {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.transfer-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.875rem;
+}
+.transfer-history p,
+.transfer-history details {
+  font-size: 0.8rem;
+  margin-top: 8px;
+  color: #5a6f64;
+}
+.transfer-badge {
+  border-radius: 20px;
+  padding: 3px 8px;
+  text-transform: capitalize;
+  background: #eef2f5;
+  font-size: 0.75rem;
+}
+.transfer-badge.completed {
+  background: #e4f1df;
+  color: #356333;
+}
+.transfer-badge.failed {
+  background: #fde9e5;
+  color: #973a31;
+}
+.receipt-id {
+  overflow-wrap: anywhere;
+  font-family: var(--font-geist-mono);
+}
+.automation-settings,
+.reset-demo {
+  margin-top: 18px;
+  font-size: 0.875rem;
+}
+.automation-settings p,
+.reset-demo p {
+  margin-block: 10px;
+  color: #5c7065;
+}
+.automation-settings form,
+.rule-summary {
+  padding: 14px;
+  background: #f7f9f6;
+  border-radius: 9px;
+  margin-top: 12px;
+}
+.automation-settings input[type='number'] {
+  margin-top: 5px;
+  max-width: 220px;
+}
+.funding-proposal.pending_funding {
+  background: #f0f5fb;
+  border-color: #d8e4ee;
+}

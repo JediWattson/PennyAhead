@@ -4,6 +4,7 @@ import type {
   BankDataProvider,
   DemoOptions,
   MonitorConfig,
+  FundingPlan,
 } from '../contracts.ts';
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
@@ -13,8 +14,16 @@ import { buildFundingPlan } from './funding.ts';
 /** Deliberately deterministic. Replace this adapter in M1b. */
 export class MockAssistant implements Assistant {
   private bank: BankDataProvider;
-  constructor(bank: BankDataProvider) {
+  private sessionPlan?: FundingPlan;
+  private sessionBound: boolean;
+  constructor(
+    bank: BankDataProvider,
+    sessionPlan?: FundingPlan,
+    sessionBound = false,
+  ) {
     this.bank = bank;
+    this.sessionPlan = sessionPlan;
+    this.sessionBound = sessionBound;
   }
 
   async reply(
@@ -43,9 +52,13 @@ export class MockAssistant implements Assistant {
         timing: 'standard',
       };
       const snapshot = await (
-        options ? new FixtureBankProvider(options.scenario) : this.bank
+        options && !this.sessionBound
+          ? new FixtureBankProvider(options.scenario)
+          : this.bank
       ).getSnapshot(ownerId);
-      const plan = buildFundingPlan(ownerId, snapshot, config, DEMO_NOW);
+      const plan =
+        this.sessionPlan ??
+        buildFundingPlan(ownerId, snapshot, config, DEMO_NOW);
       const source = snapshot.accounts.find(
         (a) => a.id === plan.sourceAccountId,
       );
@@ -65,7 +78,7 @@ export class MockAssistant implements Assistant {
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
       return {
         ...base,
-        text: 'Money movement is not available in this demo. No transfer was created. Approved sandbox transfers are planned for a later milestone.',
+        text: 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
       };
     }
     if (
@@ -74,7 +87,9 @@ export class MockAssistant implements Assistant {
       )
     ) {
       const snapshot = await (
-        options ? new FixtureBankProvider(options.scenario) : this.bank
+        options && !this.sessionBound
+          ? new FixtureBankProvider(options.scenario)
+          : this.bank
       ).getSnapshot(ownerId);
       const account = snapshot.accounts.find(
         (entry) => entry.kind === 'checking',
@@ -108,7 +123,9 @@ export class MockAssistant implements Assistant {
       };
     }
     const snapshot = await (
-      options ? new FixtureBankProvider(options.scenario) : this.bank
+      options && !this.sessionBound
+        ? new FixtureBankProvider(options.scenario)
+        : this.bank
     ).getSnapshot(ownerId);
     const context = { ...base, asOf: snapshot.asOf };
     const asksSavings = /\b(saving|savings)\b/.test(query);

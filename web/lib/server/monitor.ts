@@ -1,6 +1,7 @@
 import type { MonitorConfig, BankSnapshot } from '../contracts.ts';
-import { FixtureBankProvider, DEMO_NOW, DEMO_OWNER_ID } from './fixtures.ts';
-import { buildFundingPlan } from './funding.ts';
+import { FixtureBankProvider, DEMO_OWNER_ID } from './fixtures.ts';
+import { buildSessionPlan, transferEnvironment } from './transfer-policy.ts';
+import { applySessionTransfers } from './session-bank.ts';
 import {
   getMonitorStore,
   MonitorStore,
@@ -15,14 +16,37 @@ export async function runMonitorTick(
 ) {
   for (const state of store.due(now)) {
     try {
-      const snapshot = await load(state.config);
-      const plan = buildFundingPlan(
-        DEMO_OWNER_ID,
-        snapshot,
-        state.config,
-        DEMO_NOW,
+      const snapshot = applySessionTransfers(
+        await load(state.config),
+        state.transfers,
+        state.generation,
       );
-      store.complete(state, plan, null, now);
+      const plan = buildSessionPlan(state, snapshot);
+      const committed = store.complete(state, plan, null, now);
+      if (committed && plan.status === 'proposed' && state.rule?.enabled) {
+        const current = store.read(state.id, now)!;
+        if (
+          current.proposalId &&
+          current.proposalStatus === 'open' &&
+          current.rule &&
+          plan.amountCents + current.rule.spentCents <= current.rule.capCents
+        ) {
+          store.approve(
+            current,
+            {
+              proposalId: current.proposalId,
+              revision: current.revision,
+              amountCents: plan.amountCents,
+              sourceAccountId: plan.sourceAccountId!,
+              destinationAccountId: plan.destinationAccountId,
+            },
+            plan,
+            transferEnvironment(),
+            'automation',
+            now,
+          );
+        }
+      }
     } catch {
       store.complete(
         state,

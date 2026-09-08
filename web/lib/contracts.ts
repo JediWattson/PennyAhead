@@ -34,7 +34,7 @@ export interface BankDataProvider {
   /** Scope comes from server context, never model input. */
   getSnapshot(ownerId: string): Promise<BankSnapshot>;
 }
-/** Reserved for M4. The interface does not itself enforce transfer authorization. */
+/** Server-bound approval. Concrete stores must independently enforce authorization. */
 export interface ApprovedTransfer {
   approvalId: string;
   ownerId: string;
@@ -57,17 +57,21 @@ export interface TransferProvider {
   getTransfer(ownerId: string, transferId: string): Promise<TransferRecord>;
 }
 export interface AssistantReply {
-  mode: 'mock';
+  mode: 'mock' | 'strands';
+  provider?: 'openai' | 'bedrock';
   text: string;
   source: DataSource;
   asOf: string | null;
-  /** Deterministic backend reads, not Strands/model tool calls. */
+  /** Backend reads actually executed; live responses also include a tool trace. */
   reads: Array<
     | 'get_accounts'
     | 'get_transactions'
     | 'get_forecast'
     | 'get_funding_proposal'
+    | 'compare_funding_accounts'
+    | 'check_transfer_timing'
   >;
+  toolTrace?: Array<{ name: string; status: 'completed' }>;
 }
 export type DemoScenario = 'shortfall' | 'sufficient' | 'uncertain' | 'stale';
 export interface BillCorrection {
@@ -148,7 +152,7 @@ export interface FundingCandidate {
 }
 export interface FundingPlan {
   mode: 'deterministic-demo';
-  status: 'proposed' | 'blocked' | 'no_shortfall';
+  status: 'proposed' | 'blocked' | 'no_shortfall' | 'pending_funding';
   reason: string;
   amountCents: number;
   sourceAccountId: string | null;
@@ -179,4 +183,43 @@ export interface MonitorState {
   error: string | null;
   plan: FundingPlan | null;
   alerts: MonitorAlert[];
+  proposalId: string | null;
+  proposalStatus: 'open' | 'declined' | 'submitted' | null;
+  transfers: SessionTransfer[];
+  generation: number;
+  rule: AutomationRule | null;
+}
+
+export interface SessionTransfer extends TransferRecord {
+  generation: number;
+  createdAt: string;
+  updatedAt: string;
+  initiatedBy: 'approval' | 'automation';
+  execution: 'queued' | 'submitting' | 'uncertain' | 'submitted';
+  providerId: string | null;
+  failureReason: string | null;
+  nextAttemptAt: string;
+  attempts: number;
+}
+export interface AutomationRule {
+  id: string;
+  enabled: boolean;
+  sourceAccountId: string;
+  destinationAccountId: string;
+  capCents: number;
+  spentCents: number;
+  savingsMinimumCents: number;
+  createdAt: string;
+  revokedAt: string | null;
+}
+export interface ApprovalInput {
+  proposalId: string;
+  revision: number;
+  amountCents: number;
+  sourceAccountId: string;
+  destinationAccountId: string;
+}
+export interface MonitorView extends MonitorState {
+  demo: DemoForecast;
+  transferEnvironment: TransferRecord['environment'];
 }

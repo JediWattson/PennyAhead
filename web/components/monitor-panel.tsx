@@ -1,14 +1,21 @@
 'use client';
 
-import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SubmitEvent,
+} from 'react';
 import { BellRing, ShieldCheck } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { formatMoney } from '../lib/money';
+import { TransferPanel } from './transfer-panel';
 import type {
   DemoForecast,
   MonitorConfig,
-  MonitorState,
+  MonitorView,
 } from '../lib/contracts';
 
 export type FundingSettings = Pick<
@@ -26,23 +33,49 @@ export function MonitorPanel({
   demo,
   settings,
   onSettings,
+  onSession,
   busy,
 }: {
   demo: DemoForecast;
   settings: FundingSettings;
   onSettings: (settings: FundingSettings) => void;
   busy: boolean;
+  onSession: (state: MonitorView) => void;
 }) {
-  const [state, setState] = useState<MonitorState | null>(null);
+  const [state, setState] = useState<MonitorView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [minimum, setMinimum] = useState(
     String(settings.savingsMinimumCents / 100),
   );
   const [timing, setTiming] = useState(settings.timing);
   const [ackBusy, setAckBusy] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  const actionInFlight = useRef(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [receivedAt, setReceivedAt] = useState(0);
-  const creation = useRef<Promise<MonitorState> | null>(null);
+  const creation = useRef<Promise<MonitorView> | null>(null);
   const revision = useRef(0);
+  const acceptedVersion = useRef({ revision: -1, checkCount: -1 });
+  const accept = useCallback(
+    (result: MonitorView) => {
+      const previous = acceptedVersion.current;
+      if (
+        result.revision < previous.revision ||
+        (result.revision === previous.revision &&
+          result.checkCount < previous.checkCount)
+      )
+        return;
+      acceptedVersion.current = {
+        revision: result.revision,
+        checkCount: result.checkCount,
+      };
+      setState(result);
+      onSession(result);
+      setReceivedAt(Date.now());
+    },
+    [onSession],
+  );
+
   const desired = JSON.stringify({
     scenario: demo.scenario,
     corrections: demo.corrections,
@@ -65,7 +98,7 @@ export function MonitorPanel({
       method: string,
       id?: string,
       body?: unknown,
-    ): Promise<MonitorState> => {
+    ): Promise<MonitorView> => {
       const response = await fetch('/api/monitor', {
         method,
         headers: {
@@ -82,8 +115,7 @@ export function MonitorPanel({
       try {
         const result = await request('GET', id);
         if (!stopped && result.revision === currentRevision) {
-          setState(result);
-          setReceivedAt(Date.now());
+          accept(result);
           setError(null);
         }
       } catch {
@@ -113,8 +145,7 @@ export function MonitorPanel({
           revision: currentRevision,
         });
         if (stopped) return;
-        setState(result);
-        setReceivedAt(Date.now());
+        accept(result);
         setError(null);
         void poll(session.id);
       } catch {
@@ -133,7 +164,7 @@ export function MonitorPanel({
       stopped = true;
       clearTimeout(timer);
     };
-  }, [desired]);
+  }, [desired, accept]);
 
   const current =
     state && JSON.stringify(state.config) === desired ? state : null;
@@ -157,7 +188,7 @@ export function MonitorPanel({
         signal: AbortSignal.timeout(10000),
       });
       if (!response.ok) throw new Error('Acknowledgement failed');
-      const result: MonitorState = await response.json();
+      const result: MonitorView = await response.json();
       setState((previous) =>
         previous?.revision === result.revision &&
         result.checkCount >= previous.checkCount
@@ -168,6 +199,36 @@ export function MonitorPanel({
       setError('The alert could not be marked as read. Please try again.');
     } finally {
       setAckBusy(false);
+    }
+  }
+  async function transferAction(body: Record<string, unknown>) {
+    if (!current || actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const response = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${current.id}`,
+        },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
+      });
+      const result = await response.json();
+      if (!response.ok)
+        throw new Error(result.error ?? 'The transfer action failed.');
+      accept(result);
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'The action could not be completed. Check its status before trying again.',
+      );
+    } finally {
+      actionInFlight.current = false;
+      setActionBusy(false);
     }
   }
   function save(event: SubmitEvent<HTMLFormElement>) {
@@ -231,16 +292,20 @@ export function MonitorPanel({
             <p className="eyebrow">
               {plan.status === 'proposed'
                 ? 'FUNDING PROPOSAL · DEMO'
-                : plan.status === 'blocked'
-                  ? 'ATTENTION NEEDED'
-                  : 'NO FUNDING NEEDED'}
+                : plan.status === 'pending_funding'
+                  ? 'TRANSFER PENDING'
+                  : plan.status === 'blocked'
+                    ? 'ATTENTION NEEDED'
+                    : 'NO FUNDING NEEDED'}
             </p>
             <h3 data-testid="proposal-title">
               {plan.status === 'proposed'
                 ? `Set aside ${formatMoney(plan.amountCents)} for upcoming bills`
-                : plan.status === 'blocked'
-                  ? 'A funding proposal is unavailable'
-                  : 'Your detected bills fit'}
+                : plan.status === 'pending_funding'
+                  ? 'Your transfer is still pending'
+                  : plan.status === 'blocked'
+                    ? 'A funding proposal is unavailable'
+                    : 'Your detected bills fit'}
             </h3>
             <p>{plan.reason}</p>
             {plan.status !== 'no_shortfall' && (
@@ -297,8 +362,8 @@ export function MonitorPanel({
             )}
             {plan.status === 'proposed' && (
               <p className="proposal-note">
-                <ShieldCheck size={16} /> Proposal only. Transfers are not
-                available in this demo. No money has moved.
+                <ShieldCheck size={16} /> Proposal only. Explicit approval is
+                required unless you have enabled an automatic funding rule.
               </p>
             )}
             {plan.status !== 'no_shortfall' && (
@@ -323,6 +388,18 @@ export function MonitorPanel({
               </Button>
             )}
           </div>
+        )}
+        {actionError && (
+          <p className="error-message" role="alert">
+            {actionError}
+          </p>
+        )}
+        {current && (
+          <TransferPanel
+            state={{ ...current, plan: plan ?? null }}
+            busy={busy || actionBusy}
+            action={transferAction}
+          />
         )}
         <details className="monitor-settings">
           <summary>Monitoring preferences</summary>
@@ -401,8 +478,8 @@ export function MonitorPanel({
           </details>
         )}
         <p className="monitor-meta">
-          Proposals use demo rules and synthetic data. The assistant uses
-          scripted responses.
+          Proposals use deterministic rules and synthetic data. Approval and
+          settlement are separate steps.
         </p>
       </div>
     </section>

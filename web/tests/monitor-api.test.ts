@@ -131,3 +131,42 @@ void test('API rejects invalid corrections, limits, revisions and execution acti
   );
   assert.equal(((await late.json()) as MonitorState).config.timing, 'delayed');
 });
+
+void test('transfer endpoint enforces session capability, exact approval and explicit rule authorization', async () => {
+  const { POST: transfer } = await import('../app/api/transfers/route.ts');
+  assert.equal(
+    (await transfer(request('POST', { action: 'approve' }))).status,
+    404,
+  );
+  const created = (await (
+    await POST(request('POST', config))
+  ).json()) as MonitorState;
+  await runMonitorTick(getMonitorStore());
+  const state = getMonitorStore().read(created.id)!;
+  const bound = {
+    action: 'approve',
+    proposalId: state.proposalId,
+    revision: state.revision,
+    amountCents: state.plan!.amountCents,
+    sourceAccountId: state.plan!.sourceAccountId,
+    destinationAccountId: state.plan!.destinationAccountId,
+  };
+  assert.equal(
+    (await transfer(request('POST', { ...bound, amountCents: 1 }, state.id)))
+      .status,
+    409,
+  );
+  assert.equal(
+    (
+      await transfer(
+        request('POST', { action: 'enable_rule', capCents: 5000 }, state.id),
+      )
+    ).status,
+    409,
+  );
+  const approved = await transfer(request('POST', bound, state.id));
+  assert.equal(approved.status, 200);
+  assert.equal(approved.headers.get('Cache-Control'), 'no-store');
+  assert.equal((await transfer(request('POST', bound, state.id))).status, 200);
+  assert.equal(getMonitorStore().read(state.id)!.transfers.length, 1);
+});

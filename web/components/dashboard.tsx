@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState, type SubmitEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SubmitEvent,
+} from 'react';
 import {
   ArrowUpRight,
   ArrowDownLeft,
@@ -19,6 +25,7 @@ import type {
   DemoForecast,
   DemoOptions,
   DemoScenario,
+  MonitorView,
 } from '../lib/contracts';
 import { formatMoney } from '../lib/money';
 import { registerAccountReader } from '../lib/webmcp';
@@ -36,18 +43,27 @@ const suggestions = [
   'How can I cover the shortfall?',
 ];
 
-export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
+export function Dashboard({
+  initialDemo,
+  assistantProvider = 'mock',
+}: {
+  initialDemo: DemoForecast;
+  assistantProvider?: 'mock' | 'openai' | 'bedrock';
+}) {
   const [demo, setDemo] = useState(initialDemo);
   const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
     enabled: true,
     savingsMinimumCents: 100000,
     timing: 'standard',
   });
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const ledgerVersion = useRef<string | null>(null);
   const snapshot = demo.snapshot;
   const [forecastBusy, setForecastBusy] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const forecastInFlight = useRef(false);
   useEffect(() => registerAccountReader(snapshot), [snapshot]);
+  const chatVersion = useRef(0);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
@@ -55,29 +71,54 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      text: 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. I’m using mock responses and synthetic data for now.',
+      text: 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. The accounts and money in this demo are synthetic.',
     },
   ]);
 
+  const onSession = useCallback((state: MonitorView) => {
+    const version = JSON.stringify([
+      state.generation,
+      state.transfers.map((t) => [t.id, t.status]),
+    ]);
+    if (ledgerVersion.current !== null && version !== ledgerVersion.current) {
+      setMessages([]);
+      chatVersion.current++;
+    }
+    ledgerVersion.current = version;
+    setSessionId(state.id);
+    setDemo((previous) =>
+      previous.scenario === state.demo.scenario &&
+      JSON.stringify(previous.corrections) ===
+        JSON.stringify(state.demo.corrections)
+        ? state.demo
+        : previous,
+    );
+  }, []);
+
   async function ask(message: string) {
     if (inFlight.current || forecastInFlight.current || !message.trim()) return;
+    const version = chatVersion.current;
     inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
       const response = await fetch('/api/assistant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { Authorization: `Bearer ${sessionId}` } : {}),
+        },
         body: JSON.stringify({
           message,
           scenario: demo.scenario,
           corrections: demo.corrections,
           monitoring: fundingSettings,
         }),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(35000),
       });
       if (!response.ok) throw new Error('The assistant could not answer.');
       const reply: AssistantReply = await response.json();
+      if (version !== chatVersion.current) return;
       setMessages((previous) => [
         ...previous,
         { role: 'user', text: message },
@@ -107,7 +148,7 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options),
-        signal: AbortSignal.timeout(15000),
+        signal: AbortSignal.timeout(35000),
       });
       if (!response.ok) throw new Error('Invalid correction');
       const next: DemoForecast = await response.json();
@@ -230,6 +271,7 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
             <MonitorPanel
               demo={demo}
               settings={fundingSettings}
+              onSession={onSession}
               onSettings={(settings) => {
                 setFundingSettings(settings);
                 setMessages([]);
@@ -305,8 +347,16 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
               </div>
             </div>
             <div className="mock-notice">
-              <strong>Mock assistant</strong>
-              <span>Scripted replies · No live AI connected</span>
+              <strong>
+                {assistantProvider === 'mock'
+                  ? 'Mock assistant'
+                  : 'Strands assistant'}
+              </strong>
+              <span>
+                {assistantProvider === 'mock'
+                  ? 'Scripted replies · No live AI connected'
+                  : `Read-only AI via ${assistantProvider === 'openai' ? 'OpenAI' : 'Amazon Bedrock'} · Synthetic data`}
+              </span>
             </div>
             <div
               className="conversation"
@@ -317,9 +367,28 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
               {messages.map((message, index) => (
                 <article className={`chat-message ${message.role}`} key={index}>
                   <span className="message-label">
-                    {message.role === 'user' ? 'YOU' : 'PENNYAHEAD · MOCK'}
+                    {message.role === 'user'
+                      ? 'YOU'
+                      : message.reply?.mode === 'strands'
+                        ? 'PENNYAHEAD · STRANDS'
+                        : assistantProvider === 'mock'
+                          ? 'PENNYAHEAD · MOCK'
+                          : 'PENNYAHEAD'}
                   </span>
                   <p>{message.text}</p>
+                  {message.role === 'assistant' &&
+                  message.reply?.toolTrace?.length ? (
+                    <details className="read-receipt">
+                      <summary>
+                        Executed tools ({message.reply.toolTrace.length})
+                      </summary>
+                      {message.reply.toolTrace.map((entry, n) => (
+                        <div key={n}>
+                          {entry.name} · {entry.status}
+                        </div>
+                      ))}
+                    </details>
+                  ) : null}
                   {message.role === 'assistant' &&
                   message.reply?.reads.length ? (
                     <span className="read-receipt">
@@ -397,7 +466,9 @@ export function Dashboard({ initialDemo }: { initialDemo: DemoForecast }) {
         </div>
         <footer>
           <span>PennyAhead · Stay a step ahead of your bills.</span>
-          <span>Demo only. No bank connections or money movement.</span>
+          <span>
+            Synthetic demo · Transfers are labeled by their actual environment.
+          </span>
         </footer>
       </main>
     </div>

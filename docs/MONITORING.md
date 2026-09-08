@@ -1,6 +1,6 @@
 # M3 local monitoring and proposal contract
 
-M3a implements a **deterministic local demo**. Live Strands tool registration and model-selected funding decisions remain open with M1b. Nothing in this milestone authorizes, creates, or settles a transfer.
+M3a implements a **deterministic local demo**. Strands tools are now registered; live model execution remains unverified. Monitoring proposes funding; the separate [approval and local simulation flow](TRANSFERS.md) controls movement.
 
 ## Running and demonstrating
 
@@ -43,7 +43,7 @@ Failed checks hide the previous proposal and retry on the next interval. A recov
 
 ## Read-only agent boundary
 
-`createFundingTools` exposes `inspectForecast`, `compareFundingAccounts` and `checkTransferTiming` against a server-bound owner, snapshot and configuration. `buildFundingPlan` composes those operations and is shared by the monitor and deterministic mock. They are tested domain functions, not registered Strands tools. M1b/M3b must add the actual Strands SDK adapter and verify model-selected calls before claiming live agent behavior.
+`createFundingTools` exposes `inspectForecast`, `compareFundingAccounts` and `checkTransferTiming` against a server-bound owner, snapshot and configuration. `buildFundingPlan` composes those operations and is shared by the monitor and deterministic mock. The Strands adapter now wraps these calculations in read-only tools. Fixture-model SDK-loop tests pass; actual provider-selected calls remain required before claiming live agent behavior.
 
 M4 must independently revalidate exact amount/account approval, ownership, funds, freshness, arrival timing, authorization and idempotency when creating a provider transfer. A displayed proposal or alert acknowledgement is never transfer authorization.
 
