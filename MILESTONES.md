@@ -1,18 +1,23 @@
 # PennyAhead milestone plan
 
-All milestones are initially **not started**. Dates are targets established on September 8, 2026, not completion claims.
+**Status: M1a is implemented and verified locally.** Live Strands integration (M1b) is deferred; provider sandbox access and M2–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
 
 ## M1 — Runnable foundation and demo accounts
 
 **Target: September 8**
 
-- [ ] Create the repository, license, README, and application skeleton. Project documents are present; the application is not yet implemented.
-- [ ] Configure Strands and model access.
-- [ ] Seed synthetic checking and savings accounts, transaction history, and subscription schedules.
-- [ ] Define bank-data and transfer interfaces shared by fixtures and provider sandboxes.
-- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early.
+- [x] Create the repository, license, README, and application skeleton. The Next.js/TypeScript app with shadcn/ui runs locally.
+- [x] M1a: Build a local mock assistant that reads balances through the bank-data interface. Clearly label its deterministic responses as mock behavior; no model credentials are required.
+- [ ] M1b (deferred): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. Select the provider and credentials when starting this substep.
+- [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
+- [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Transfer execution is not implemented.
+- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Setup prerequisites](docs/INTEGRATIONS.md) are documented; credentials and live sandbox verification remain pending.
 
-**Completion criterion:** A user can open the app, see two accounts, and ask the Strands assistant about balances through an actual tool call.
+**Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
+
+**Local verification:** Eight backend/API tests, TypeScript checking, application lint, and the Next.js production build pass. Both `next dev` and `next start` serve account data and mock replies over HTTP and reject empty messages. Production CSS and JavaScript assets load successfully. Browser interaction and visual QA have not been performed.
+
+**Live integration criterion (M1b, deferred):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 
 ## M2 — Upcoming bills and shortage forecasting
 
