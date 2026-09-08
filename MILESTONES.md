@@ -1,6 +1,6 @@
 # PennyAhead milestone plan
 
-**Status: M1a, M2 and the local M3a monitoring/proposal flow are implemented.** Live Strands integration (M1b/M3b) awaits credential setup; provider sandbox access and M4–M6 remain open. Dates are targets established on September 8, 2026, not completion claims.
+**Status: local M1–M3, M4 approval/simulation and M5 product flows are implemented. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, bank sandbox integration, public deployment and submission remain open.**
 
 ## M1 — Runnable foundation and demo accounts
 
@@ -10,12 +10,12 @@
 - [x] M1a: Build a local mock assistant that reads balances through the bank-data interface. Clearly label its deterministic responses as mock behavior; no model credentials are required.
 - [ ] M1b (credential setup pending): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. OpenAI is the selected initial provider, with a provider boundary for Amazon Bedrock later; the secure-key setup flow is not yet verified complete.
 - [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
-- [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Transfer execution is not implemented.
+- [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Local simulation is implemented; provider execution remains open.
 - [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Setup prerequisites](docs/INTEGRATIONS.md) are documented; credentials and live sandbox verification remain pending.
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 
-**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current M3a build passes 44 backend/API tests, nine production checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
+**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current build passes 52 backend/API tests, 11 production checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
 
 **Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 
@@ -39,7 +39,8 @@
 
 - [x] M3a: Run local server monitoring independently of the chat interface, with persisted isolated demo monitors.
 - [x] Generate an in-app alert when a meaningful shortage appears.
-- [ ] M3b: Give Strands tools to inspect forecasts, compare funding accounts, and check transfer timing. Read-only domain functions are implemented and tested; SDK registration and model-selected calls await M1b.
+- [x] Register Strands tools for forecasts, funding accounts and transfer timing; exercise the real SDK tool loop with a fixture model.
+- [ ] M3b live verification: record actual model-selected calls with configured provider access.
 - [x] Produce a deterministic demo proposal containing amount, source, destination, expected arrival, and remaining savings.
 - [x] Suppress duplicate alerts for an unchanged situation, including overlapping checks and local server restarts.
 
@@ -52,12 +53,14 @@
 **Target: September 11. Depends on M3 and provider sandbox access.**
 
 - [ ] Connect the transfer flow to Dwolla's sandbox.
-- [ ] Bind approval to exact accounts and amount.
-- [ ] Enforce account ownership, available funds, and limits in backend code.
-- [ ] Prevent duplicates from repeated clicks, retries, and overlapping monitor runs.
+- [x] Bind approval to exact accounts and amount.
+- [x] Enforce account ownership, available funds, and limits in backend code.
+- [x] Prevent duplicates from repeated clicks, retries, and overlapping monitor runs.
 - [ ] Track pending, completed, and failed transfers through provider events.
 
 **Completion criterion:** Approval creates a sandbox transfer whose progress is visible. Declined approvals and duplicate requests cannot create additional transfers.
+
+**Local M4 evidence:** approval, decline, duplicate/stale rejection, pending reservation, success/failure, isolated reset and automation safeguards pass tests. Settlement is explicitly simulated. See [transfer contracts](docs/TRANSFERS.md).
 
 **Integration checkpoint:** Label any remaining simulation. A local simulation does not complete the provider-integration milestone.
 
@@ -65,13 +68,15 @@
 
 **Target: September 12–13. Depends on M4.**
 
-- [ ] Finish account overview, bill calendar, approval cards, and activity history.
-- [ ] Add an optional revocable automatic-transfer rule with an amount cap and savings floor.
+- [x] Finish account overview, bill calendar, approval cards, and activity history.
+- [x] Add an optional revocable automatic-transfer rule with an amount cap and savings floor.
 - [ ] Deploy a judge-accessible demo; evaluate AgentCore after the core flow is stable.
-- [ ] Provide isolated demo sessions and a resettable scenario.
-- [ ] Demonstrate a shortage that is covered.
-- [ ] Demonstrate a savings limit that prevents a transfer.
-- [ ] Demonstrate a transfer that would arrive too late and requires an alert.
+- [x] Provide isolated demo sessions and a resettable scenario.
+- [x] Demonstrate a shortage that is covered.
+- [x] Demonstrate a savings limit that prevents a transfer.
+- [x] Demonstrate a transfer that would arrive too late and requires an alert.
+
+**Deployment preparation:** [AWS template and operator guide](docs/DEPLOYMENT.md) are ready and CloudFormation validation passed; resource creation and HTTPS verification remain open.
 
 **Completion criterion:** Someone unfamiliar with the project can complete the experience, understand each decision, and distinguish simulated money from real money.
 
@@ -81,11 +86,13 @@
 
 - [ ] Freeze features and fix demonstration blockers.
 - [ ] Verify installation from the public README.
-- [ ] Complete the architecture diagram and project description.
+- [x] Complete the architecture diagram and project description.
 - [ ] Record a public YouTube or Vimeo video of at most five minutes showing the problem, audience, and working flow.
 - [ ] Complete the Devpost submission with AWS Builder ID before September 14, 8 p.m. Eastern.
 - [ ] Verify every submission link and keep the functioning demo or test build available through October 8.
 - [ ] Publish an optional Builder Center post for bonus points after the core submission is ready.
+
+**Prepared:** [submission description and video script](docs/SUBMISSION.md), [architecture diagram](docs/ARCHITECTURE.md), and public-repository CI. No public video or Devpost submission yet.
 
 **Completion criterion:** The entry is submitted, every link works, and the video's claims match the implementation.
 

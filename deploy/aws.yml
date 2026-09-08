@@ -1,0 +1,124 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: PennyAhead synthetic demo - one persistent EC2 host behind CloudFront HTTPS
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Public subnet with an Internet Gateway route
+  Commit:
+    Type: String
+    AllowedPattern: '[a-f0-9]{40}'
+    Description: Exact reviewed public GitHub commit to build
+  OriginToken:
+    Type: String
+    NoEcho: true
+    MinLength: 32
+    AllowedPattern: '[a-f0-9]{64}'
+  ImageId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  CloudFrontPrefixList:
+    Type: String
+    Default: pl-3b927c52
+    Description: AWS-managed CloudFront origin-facing prefix list in us-east-1
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Only CloudFront can reach the demo; no SSH
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          SourcePrefixListId: !Ref CloudFrontPrefixList
+  Role:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref Role]
+  Host:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageId
+      InstanceType: t3.small
+      CreditSpecification: {CPUCredits: standard}
+      IamInstanceProfile: !Ref InstanceProfile
+      MetadataOptions: {HttpTokens: required, HttpPutResponseHopLimit: 1}
+      NetworkInterfaces:
+        - DeviceIndex: '0'
+          AssociatePublicIpAddress: true
+          SubnetId: !Ref SubnetId
+          GroupSet: [!Ref SecurityGroup]
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: {VolumeSize: 24, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true}
+      Tags:
+        - {Key: Name, Value: pennyahead-demo}
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          dnf install -y docker git
+          systemctl enable --now docker
+          fallocate -l 3G /swapfile
+          chmod 600 /swapfile
+          mkswap /swapfile
+          swapon /swapfile
+          echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+          git clone https://github.com/JediWattson/PennyAhead.git /opt/pennyahead
+          cd /opt/pennyahead
+          git checkout --detach ${Commit}
+          docker build -t pennyahead:${Commit} web
+          mkdir -p /var/lib/pennyahead
+          chown 1000:1000 /var/lib/pennyahead
+          install -m 600 /dev/null /etc/pennyahead.env
+          cat > /etc/pennyahead.env <<'ENV'
+          PENNYAHEAD_ASSISTANT=mock
+          PENNYAHEAD_TRANSFER_PROVIDER=local_simulation
+          PENNYAHEAD_ORIGIN_TOKEN=${OriginToken}
+          ENV
+          docker run -d --name pennyahead --restart unless-stopped --cap-drop ALL --security-opt no-new-privileges:true --env-file /etc/pennyahead.env -p 80:3000 -v /var/lib/pennyahead:/data pennyahead:${Commit}
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: PennyAhead synthetic hackathon demo
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - Id: demo
+            DomainName: !GetAtt Host.PublicDnsName
+            CustomOriginConfig:
+              HTTPPort: 80
+              OriginProtocolPolicy: http-only
+            OriginCustomHeaders:
+              - HeaderName: x-pennyahead-origin
+                HeaderValue: !Ref OriginToken
+        DefaultCacheBehavior:
+          TargetOriginId: demo
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+          OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
+        ViewerCertificate: {CloudFrontDefaultCertificate: true}
+Outputs:
+  DemoUrl:
+    Value: !Sub https://${Distribution.DomainName}
+  InstanceId:
+    Value: !Ref Host

@@ -1,0 +1,34 @@
+# PennyAhead architecture
+
+```mermaid
+flowchart TD
+  User[User in a browser] --> UI[Next.js dashboard: accounts, bills, forecast, approvals, activity]
+  UI --> Session[Random session bearer capability]
+  UI --> Chat[Assistant API]
+  Chat --> Mode{Configured mode}
+  Mode --> Mock[Deterministic mock]
+  Mode --> Agent[Strands TypeScript agent]
+  Agent --> Model[OpenAI or Amazon Bedrock model adapter]
+  Agent --> Tools[Six read-only tools]
+  Mock --> Context[Server-bound session snapshot]
+  Tools --> Context
+  Fixture[Synthetic bank fixtures] --> Context
+  Ledger[Session transfer ledger in SQLite] --> Context
+  Context --> Forecast[Deterministic recurrence and 14-day forecast]
+  Timer[Independent five-second Node timer] --> Forecast
+  Forecast --> Policy[Savings floor, source spendability, arrival and amount checks]
+  Policy --> Proposal[Persisted proposal and deduplicated alert]
+  Proposal --> UI
+  UI --> Approval[Exact approval or explicit bounded rule]
+  Approval --> Transaction[SQLite atomic authorization and idempotency]
+  Transaction --> Ledger
+  UI --> Settlement[Explicit simulated success or failure]
+  Settlement --> Ledger
+  Ledger --> UI
+  Future[Pending: Plaid and Dwolla sandbox adapters] -.-> Context
+  Future -.-> Ledger
+```
+
+Only solid-line paths are implemented. The model adapters and Strands runtime are implemented but live provider execution awaits credential verification. Dashed provider connections are planned, not operational.
+
+For AWS, the prepared template routes browser HTTPS through CloudFront to a single EC2 container. SQLite is mounted on persistent encrypted host storage. There is no production account authentication, provider outbox, live webhook processing or AgentCore deployment. See [deployment](DEPLOYMENT.md), [forecast](FORECAST.md), [monitoring](MONITORING.md), [agent](AGENT.md) and [transfers](TRANSFERS.md) for the exact boundaries.

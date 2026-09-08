@@ -1,0 +1,45 @@
+name: Verify demo
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failure-evidence
+          path: web/work/playwright-results
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t pennyahead:test web
+      - name: Verify container health
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run -d --name pennyahead-smoke -p 3002:3000 pennyahead:test
+          trap 'docker logs pennyahead-smoke; docker rm -f pennyahead-smoke' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3002/api/health; then exit 0; fi
+            sleep 2
+          done
+          exit 1

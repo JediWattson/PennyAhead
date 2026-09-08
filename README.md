@@ -6,7 +6,9 @@ PennyAhead is a proposed U.S. consumer banking assistant for the [Agents for Hum
 
 ## Project status
 
-Project created September 8, 2026. The local application contains two synthetic accounts, recurring bill detection, a 14-day balance forecast, user corrections, background monitoring, funding proposals, and a clearly labeled mock assistant. OpenAI is selected as the initial Strands model provider, with a path to Amazon Bedrock; live model access is still pending. Bank integrations, transfers, and deployment are not yet implemented.
+Created September 8, 2026. The working local demo includes accounts, bill detection, a 14-day forecast, corrections, independent background monitoring, exact approval, pending/completed/failed simulated transfers, activity history, reset and optional revocable automation. It defaults to a clearly labeled mock assistant.
+
+The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **live provider access is still unverified**. Plaid and Dwolla are not connected. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
 
 ## Run locally
 
@@ -21,9 +23,9 @@ Open the local URL printed by the server (normally `http://localhost:3000`). No 
 
 If a restricted environment reports `Watchpack Error: EMFILE` or repeatedly restarts the server, enable polling with `WATCHPACK_POLLING=true npm --prefix web run dev`. Normal local development can use the command above.
 
-Try **What are my balances?**, **Why is my available balance lower?**, **Show recent transactions**, or **Will my bills be covered?** The mock reads backend fixture data and forecast calculations; its scripted responses are not live AI. Transfer requests are identified as unavailable.
+Try **What are my balances?**, **Why is my available balance lower?**, **Show recent transactions**, or **Will my bills be covered?** The mock reads backend fixture data and forecast calculations; its scripted responses are not live AI. Chat cannot approve transfers; use the separate approval card.
 
-Without opening chat, wait a few seconds for **Looking ahead for you** to propose $35.36 from savings with $1,814.64 remaining. The server checks independently every five seconds and persists alert history locally. Open **Monitoring preferences** to test a higher savings minimum, delayed transfer timing, or pause/resume. Ask **How can I cover the shortfall?** to hear the mock explain the same checks. Proposals do not move money; arrival timing is simulated. See [the M3 monitoring contract](docs/MONITORING.md) for the 24-hour demo retention, restart behavior and local-server requirement.
+Without opening chat, wait a few seconds for **Looking ahead for you** to propose $35.36 from savings with $1,814.64 remaining. The server checks independently every five seconds and persists alert history locally. Open **Monitoring preferences** to test a higher savings minimum, delayed transfer timing, or pause/resume. Ask **How can I cover the shortfall?** to hear the mock explain the same checks. Proposals do not move money. To try the complete local flow, check the exact approval checkbox, approve the $35.36 simulation, observe pending status, then choose **Simulate success**. Checking becomes $183.96 and the projected shortfall is covered. **Simulate failure** releases the savings reservation. Arrival timing and settlement are simulated. See [the M3 monitoring contract](docs/MONITORING.md) for the 24-hour demo retention, restart behavior and local-server requirement.
 
 The scenario selector demonstrates a shortfall, sufficient funds, uncertain payment dates, and stale data. Expand a bill to inspect its history or correct its amount/date. Corrections apply to this page's demo session and the assistant's next answer; reload or reset to return to the original data. The default scenario projects a **$35.36 shortfall**, first appearing **September 18**. See [the forecast contract](docs/FORECAST.md) for calculation rules and limitations.
 
@@ -36,7 +38,7 @@ npm --prefix web run lint
 npm --prefix web run build
 ```
 
-The app uses **Next.js App Router**, **React**, **TypeScript**, **shadcn/ui**, and **Tailwind CSS**. The React UI is in `web/components/dashboard.tsx`. TypeScript backend routes are in `web/app/api`, shared provider contracts in `web/lib/contracts.ts`, and the fixture and mock implementations in `web/lib/server`. The development and production commands use standard Next.js on Node.js; public hosting remains an M5 decision.
+The app uses **Next.js App Router**, **React**, **TypeScript**, **shadcn/ui**, and **Tailwind CSS**. The React UI is in `web/components/dashboard.tsx`. TypeScript backend routes are in `web/app/api`, shared provider contracts in `web/lib/contracts.ts`, and the fixture and mock implementations in `web/lib/server`. The development and production commands use standard Next.js on Node.js; the [AWS deployment](docs/DEPLOYMENT.md) uses a persistent host behind CloudFront HTTPS.
 
 To run the production build locally:
 
@@ -45,7 +47,7 @@ npm --prefix web run build
 npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 44 backend/API tests and nine production checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 52 backend/API tests and 11 production checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
 
 To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
 
@@ -75,23 +77,25 @@ Use synthetic financial data and clearly labeled sandbox transfers for the hacka
 3. Strands checks account balances, the savings minimum, and expected transfer arrival.
 4. The assistant proposes an exact amount, source, destination, and arrival estimate.
 5. The user approves the proposal; the backend enforces its authorization and limits.
-6. The app tracks the sandbox transfer through its resulting status.
+6. The current app tracks a clearly labeled local simulated transfer through its resulting status. Provider sandbox verification remains open.
 
 Also demonstrate a savings-minimum restriction and a transfer that would arrive too late. The assistant must explain those cases without claiming the bill is covered.
 
-## Proposed architecture
+## Architecture
 
 - **Interface:** account overview, upcoming bills, assistant, approval cards, and activity history.
 - **Backend:** deterministic forecast calculations, per-user access controls, transfer authorization, idempotency, and status reconciliation.
-- **Background worker:** scheduled monitoring and webhook processing, independent of chat.
-- **Agent:** Strands Agents SDK with narrow tools for accounts, forecasts, funding proposals, and authorized actions.
+- **Background worker:** scheduled monitoring independent of chat; provider webhook processing remains planned.
+- **Agent:** Strands Agents SDK with narrow tools for accounts, forecasts, funding proposals. The agent has no money-movement tools.
 - **Data integration candidate:** Plaid for account data and recurring transactions.
 - **Transfer integration candidate:** Dwolla for transfers between the same customer's bank accounts.
 - **Deployment target:** a judge-accessible application; evaluate Amazon Bedrock AgentCore once the complete flow is stable.
 
-The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The planned live agent uses the **Strands TypeScript SDK**, initially with **OpenAI**, while keeping provider selection separate so Amazon Bedrock can be added later. The current mock assistant needs no model access; credential setup and live integration remain pending in M1b. No API keys or real financial information belong in this repository.
+The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The implemented live adapter uses the **Strands TypeScript SDK** with explicit **OpenAI** or **Amazon Bedrock** selection. The default mock needs no credentials; live verification remains pending. See [agent setup](docs/AGENT.md) and `web/.env.example`. No API keys or real financial information belong in this repository.
 
 Financial calculations and authorization belong in backend code. Approvals must bind to the exact accounts and amount. Retries and concurrent monitor runs must not duplicate a transfer. Pending transfers must not be presented as money received. Subscription dates and transfer arrival dates are estimates unless confirmed.
+
+See the [architecture diagram](docs/ARCHITECTURE.md), [approval contract](docs/TRANSFERS.md), and [submission draft and video script](docs/SUBMISSION.md).
 
 ## Plan and submission
 
