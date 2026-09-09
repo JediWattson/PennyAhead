@@ -11,7 +11,7 @@
 - [ ] M1b (credential setup pending): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. OpenAI is the selected initial provider, with a provider boundary for Amazon Bedrock later; the secure-key setup flow is not yet verified complete.
 - [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
 - [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Local simulation is implemented; provider execution remains open.
-- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Setup prerequisites](docs/INTEGRATIONS.md) are documented; credentials and live sandbox verification remain pending.
+- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Plaid Sandbox credentials, a test Item, balances and 50 transactions are verified](docs/INTEGRATIONS.md); the application data adapter and Dwolla access remain pending.
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 

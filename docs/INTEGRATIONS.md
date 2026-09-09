@@ -19,16 +19,27 @@ Do not count scripted dispatch or a direct test invocation as model-selected too
 
 Reference: [Strands TypeScript quickstart](https://strandsagents.com/docs/user-guide/quickstart/typescript/).
 
-## Plaid sandbox — Access still pending
+## Plaid sandbox — API access verified; app adapter pending
 
-- [ ] Obtain a project-specific Plaid Sandbox client ID and secret.
-- [ ] Create a sandbox Item with test transactions and obtain its access token.
+- [x] Obtain a project-specific Plaid Sandbox client ID and secret.
+- [x] Create a sandbox Item with test transactions and obtain its access token.
+- [x] Verify balance and transaction reads against Plaid Sandbox.
 - [ ] Implement `BankDataProvider` using the Sandbox API, preserving integer cents, observation timestamps, transaction status, and pending-to-posted links.
 - [ ] Distinguish provider sandbox records from the built-in synthetic fixtures.
 
-These are setup prerequisites, not evidence of connected accounts. No Plaid API calls have been made.
+On September 8, 2026 (Eastern), the Sandbox API returned 14 accounts, including two checking/savings accounts, and 50 transactions with `HISTORICAL_UPDATE_COMPLETE`. These are Plaid-generated test records. No real bank is connected and no provider transfer was created. The application dashboard and assistant continue to use built-in fixtures until the adapter is implemented.
 
-Reference: [Plaid Sandbox overview](https://plaid.com/docs/sandbox/).
+Credentials and the test Item access token are stored only in ignored `web/.env.local`; setup journals and the verification summary are in ignored `web/work/private/`. The setup script writes these files with owner-only permissions and never logs credentials or raw API responses. The first institution returned `ITEM_LOGIN_REQUIRED` at Item creation; the successful setup uses Plaid's documented First Platypus Bank test institution.
+
+To verify an existing Sandbox Item, run from `web`:
+
+```sh
+node --env-file=.env.local scripts/plaid-sandbox.mjs
+```
+
+For initial setup only, add `--create-item`. The script reuses a saved token and journals creation/exchange attempts so an ambiguous response cannot silently create another Item. If transactions are not ready, rerun the verification later; it does not create another Item. A creation or exchange with an uncertain outcome requires manual reconciliation in the Plaid dashboard before another creation attempt.
+
+References: [Plaid Sandbox overview](https://plaid.com/docs/sandbox/), [test credentials and institution](https://plaid.com/docs/sandbox/test-credentials/), [Sandbox API](https://plaid.com/docs/api/sandbox/).
 
 ## Dwolla sandbox — Access still pending
 
