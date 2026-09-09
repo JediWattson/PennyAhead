@@ -13,6 +13,8 @@ export function applySessionTransfers(
   transfers: SessionTransfer[],
   generation: number,
 ): BankSnapshot {
+  if (snapshot.source !== 'synthetic')
+    throw new Error('Local simulation cannot modify provider observations');
   const result = structuredClone(snapshot);
   for (const transfer of transfers.filter(
     (t) =>

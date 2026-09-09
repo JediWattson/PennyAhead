@@ -28,6 +28,14 @@ export interface BankSnapshot {
   asOf: string;
   accounts: Account[];
   transactions: Transaction[];
+  /** Provider coverage is separate from balance freshness and bill detection. */
+  coverage?: {
+    totalAccounts: number;
+    excludedAccounts: number;
+    historyComplete: boolean;
+    transactionsUpdatedAt: string | null;
+    warnings: string[];
+  };
 }
 export interface BankDataProvider {
   readonly source: DataSource;
@@ -125,7 +133,9 @@ export interface ForecastReport {
   warnings: string[];
 }
 export interface DemoForecast extends DemoOptions {
-  clock: 'fixed-demo';
+  clock: 'fixed-demo' | 'provider-observation';
+  /** Identifies an immutable, expiring Sandbox observation. Never a bank token. */
+  snapshotId?: string;
   snapshot: BankSnapshot;
   forecast: ForecastReport;
 }

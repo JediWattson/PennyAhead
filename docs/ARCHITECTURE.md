@@ -25,10 +25,16 @@ flowchart TD
   UI --> Settlement[Explicit simulated success or failure]
   Settlement --> Ledger
   Ledger --> UI
-  Future[Pending: Plaid and Dwolla sandbox adapters] -.-> Context
+  UI --> Sandbox[Optional read-only Sandbox view and API]
+  Plaid[Plaid Sandbox balances, Transactions Sync and Item status] --> Observations[Bounded immutable provider observations]
+  Sandbox --> Observations
+  Observations --> Forecast
+  Sandbox --> SandboxChat[Scripted chat bound to the displayed observation]
+  SandboxChat --> Observations
+  Future[Pending: Dwolla sandbox adapter] -.-> Context
   Future -.-> Ledger
 ```
 
-Only solid-line paths are implemented. The model adapters and Strands runtime are implemented but live provider execution awaits credential verification. Dashed provider connections are planned, not operational.
+Only solid-line paths are implemented. The model adapters and Strands runtime are implemented but live model execution awaits credential verification. The Sandbox view reuses the deterministic forecast; it does not enter the synthetic monitor, approval or settlement paths. Dashed Dwolla connections are planned, not operational.
 
 For AWS, the prepared template routes browser HTTPS through CloudFront to a single EC2 container. SQLite is mounted on persistent encrypted host storage. There is no production account authentication, provider outbox, live webhook processing or AgentCore deployment. See [deployment](DEPLOYMENT.md), [forecast](FORECAST.md), [monitoring](MONITORING.md), [agent](AGENT.md) and [transfers](TRANSFERS.md) for the exact boundaries.

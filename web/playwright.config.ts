@@ -16,6 +16,8 @@ export default defineConfig({
     env: {
       NEXT_TELEMETRY_DISABLED: '1',
       PENNYAHEAD_MONITOR_DB: 'work/e2e-monitor.sqlite',
+      // Browser CI exercises recorded fixtures; external Sandbox checks run explicitly.
+      PENNYAHEAD_PLAID_SANDBOX_ENABLED: 'false',
     },
     timeout: 30000,
   },

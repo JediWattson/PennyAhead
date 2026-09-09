@@ -8,7 +8,7 @@ PennyAhead is a proposed U.S. consumer banking assistant for the [Agents for Hum
 
 Created September 8, 2026. The working local demo includes accounts, bill detection, a 14-day forecast, corrections, independent background monitoring, exact approval, pending/completed/failed simulated transfers, activity history, reset and optional revocable automation. It defaults to a clearly labeled mock assistant.
 
-The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **live provider access is still unverified**. Plaid and Dwolla are not connected. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
+The optional [Plaid Sandbox view](docs/PLAID.md) reads actual provider-generated test accounts into balances, transaction history, bill forecasts and scripted chat. Dwolla transfers are not connected. The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **live model access is still unverified**. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
 
 ## Run locally
 
@@ -47,7 +47,7 @@ npm --prefix web run build
 npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 52 backend/API tests and 11 production checks pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 60 backend/API tests and 14 production browser checks plus the opt-in actual Plaid Sandbox browser check pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
 
 To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
 
@@ -57,7 +57,7 @@ npx playwright install chromium --only-shell
 npm run test:e2e
 ```
 
-See [integration checkpoints](docs/INTEGRATIONS.md) for the deferred model setup and Plaid/Dwolla sandbox prerequisites. An optional `read_demo_accounts` WebMCP tool exposes the same visible synthetic snapshot in compatible browsers; ordinary browsers work without it. Its browser registration has not been verified in a supported WebMCP context.
+See [integration checkpoints](docs/INTEGRATIONS.md) for model and Dwolla setup. To use the configured Plaid test Item, enable the server-only Sandbox setting and open `/sandbox`; [setup and data boundaries](docs/PLAID.md) describe its separate read-only flow. An optional `read_demo_accounts` WebMCP tool exposes the same visible fixture or Sandbox snapshot in compatible browsers; ordinary browsers work without it. Its browser registration has not been verified in a supported WebMCP context.
 
 ## Initial scope
 
@@ -87,7 +87,7 @@ Also demonstrate a savings-minimum restriction and a transfer that would arrive 
 - **Backend:** deterministic forecast calculations, per-user access controls, transfer authorization, idempotency, and status reconciliation.
 - **Background worker:** scheduled monitoring independent of chat; provider webhook processing remains planned.
 - **Agent:** Strands Agents SDK with narrow tools for accounts, forecasts, funding proposals. The agent has no money-movement tools.
-- **Data integration candidate:** Plaid for account data and recurring transactions.
+- **Data integration:** Plaid Sandbox for test balances and transactions; the backend detects monthly bills from this history.
 - **Transfer integration candidate:** Dwolla for transfers between the same customer's bank accounts.
 - **Deployment target:** a judge-accessible application; evaluate Amazon Bedrock AgentCore once the complete flow is stable.
 

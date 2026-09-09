@@ -1,6 +1,6 @@
 # PennyAhead milestone plan
 
-**Status: local M1–M3, M4 approval/simulation and M5 product flows are implemented. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, bank sandbox integration, public deployment and submission remain open.**
+**Status: local M1–M3, M4 approval/simulation and M5 product flows are implemented. The read-only Plaid Sandbox view connects provider test balances and transactions to forecasting and scripted chat. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, provider transfers, public deployment and submission remain open.**
 
 ## M1 — Runnable foundation and demo accounts
 
@@ -11,11 +11,11 @@
 - [ ] M1b (credential setup pending): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. OpenAI is the selected initial provider, with a provider boundary for Amazon Bedrock later; the secure-key setup flow is not yet verified complete.
 - [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
 - [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Local simulation is implemented; provider execution remains open.
-- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Plaid Sandbox credentials, a test Item, balances and 50 transactions are verified](docs/INTEGRATIONS.md); the application data adapter and Dwolla access remain pending.
+- [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Plaid Sandbox access and the read-only application adapter are connected](docs/PLAID.md); Dwolla access remains pending.
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 
-**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current build passes 52 backend/API tests, 11 production checks, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
+**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current build passes 60 backend/API tests, 14 production browser checks plus the opt-in actual Plaid Sandbox browser check, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
 
 **Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 

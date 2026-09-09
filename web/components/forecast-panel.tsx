@@ -149,7 +149,14 @@ export function ForecastPanel({
       </div>
       <div className={`forecast-card ${report.status}`}>
         <div className="forecast-verdict">
-          <p className="eyebrow">CHECKING · ESTIMATE</p>
+          <p className="eyebrow">
+            {demo.snapshot.source === 'plaid_sandbox'
+              ? demo.snapshot.accounts.find(
+                  (account) => account.id === report.accountId,
+                )?.name
+              : 'CHECKING'}{' '}
+            · ESTIMATE
+          </p>
           <h3 data-testid="forecast-title">{title}</h3>
           <p>
             {report.firstShortfall
@@ -178,7 +185,7 @@ export function ForecastPanel({
           </div>
         </div>
         {/* oxlint-disable jsx-a11y/prefer-tag-over-role -- An inline SVG chart needs its image role; an img cannot contain its plotted data. */}
-      <svg
+        <svg
           className="balance-chart"
           viewBox="0 0 580 182"
           role="img"
@@ -199,7 +206,7 @@ export function ForecastPanel({
             {dateLabel(report.days[13].date)}
           </text>
         </svg>
-      {/* oxlint-enable jsx-a11y/prefer-tag-over-role */}
+        {/* oxlint-enable jsx-a11y/prefer-tag-over-role */}
         {uncertain && (
           <p className="chart-legend">
             Solid: expected timing · Dashed: earlier dates and higher observed
@@ -209,7 +216,11 @@ export function ForecastPanel({
         <p className="freshness">
           Data observed {dateLabel(report.observedAt)},{' '}
           {new Date(report.observedAt).toISOString().slice(11, 16)} UTC ·{' '}
-          {Math.floor(report.ageHours)} hours old against the fixed demo clock.
+          {Math.floor(report.ageHours)} hours old against{' '}
+          {demo.clock === 'fixed-demo'
+            ? 'the fixed demo clock'
+            : 'the observation time'}
+          .
         </p>
         {report.warnings.length > 0 && (
           <ul className="forecast-warnings">
@@ -255,6 +266,12 @@ export function ForecastPanel({
         <span>Inferred from transaction history</span>
       </div>
       <ul className="bill-list">
+        {report.bills.length === 0 && (
+          <li className="bill-row">
+            No monthly bills detected. Detection needs three consecutive monthly
+            payments; other spending is not included in this estimate.
+          </li>
+        )}
         {report.bills.map((bill) => (
           <li
             key={`${bill.id}:${bill.amountCents}:${bill.nextDate}:${bill.enabled}`}

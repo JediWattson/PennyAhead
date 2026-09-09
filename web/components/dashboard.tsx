@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import {
   useCallback,
   useEffect,
@@ -46,9 +48,11 @@ const suggestions = [
 export function Dashboard({
   initialDemo,
   assistantProvider = 'mock',
+  sandboxAvailable = false,
 }: {
   initialDemo: DemoForecast;
   assistantProvider?: 'mock' | 'openai' | 'bedrock';
+  sandboxAvailable?: boolean;
 }) {
   const [demo, setDemo] = useState(initialDemo);
   const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
@@ -59,6 +63,7 @@ export function Dashboard({
   const [sessionId, setSessionId] = useState<string | null>(null);
   const ledgerVersion = useRef<string | null>(null);
   const snapshot = demo.snapshot;
+  const sandbox = snapshot.source === 'plaid_sandbox';
   const [forecastBusy, setForecastBusy] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const forecastInFlight = useRef(false);
@@ -71,7 +76,9 @@ export function Dashboard({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      text: 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. The accounts and money in this demo are synthetic.',
+      text: sandbox
+        ? 'Your Plaid Sandbox test accounts are connected. Ask about the balances, forecast, or recent activity shown here. I use scripted replies; these are test records and no real money is connected.'
+        : 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. The accounts and money in this demo are synthetic.',
     },
   ]);
 
@@ -102,21 +109,37 @@ export function Dashboard({
     setBusy(true);
     setError(null);
     try {
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(sessionId ? { Authorization: `Bearer ${sessionId}` } : {}),
+      const response = await fetch(
+        sandbox ? '/api/sandbox/assistant' : '/api/assistant',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(!sandbox && sessionId
+              ? { Authorization: `Bearer ${sessionId}` }
+              : {}),
+          },
+          body: JSON.stringify(
+            sandbox
+              ? {
+                  message,
+                  snapshotId: demo.snapshotId,
+                  corrections: demo.corrections,
+                }
+              : {
+                  message,
+                  scenario: demo.scenario,
+                  corrections: demo.corrections,
+                  monitoring: fundingSettings,
+                },
+          ),
+          signal: AbortSignal.timeout(35000),
         },
-        body: JSON.stringify({
-          message,
-          scenario: demo.scenario,
-          corrections: demo.corrections,
-          monitoring: fundingSettings,
-        }),
-        signal: AbortSignal.timeout(35000),
-      });
-      if (!response.ok) throw new Error('The assistant could not answer.');
+      );
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? 'The assistant could not answer.');
+      }
       const reply: AssistantReply = await response.json();
       if (version !== chatVersion.current) return;
       setMessages((previous) => [
@@ -125,9 +148,11 @@ export function Dashboard({
         { role: 'assistant', text: reply.text, reply },
       ]);
       setDraft('');
-    } catch {
+    } catch (failure) {
       setError(
-        'The assistant could not answer. Your message is still here; please try again.',
+        sandbox && failure instanceof Error
+          ? `${failure.message} Your message is still here.`
+          : 'The assistant could not answer. Your message is still here; please try again.',
       );
     } finally {
       inFlight.current = false;
@@ -144,23 +169,59 @@ export function Dashboard({
     setForecastBusy(true);
     setForecastError(null);
     try {
-      const response = await fetch('/api/forecast', {
+      const response = await fetch(sandbox ? '/api/sandbox' : '/api/forecast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(options),
+        body: JSON.stringify(
+          sandbox
+            ? { snapshotId: demo.snapshotId, corrections: options.corrections }
+            : options,
+        ),
         signal: AbortSignal.timeout(35000),
       });
-      if (!response.ok) throw new Error('Invalid correction');
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Invalid correction');
+      }
       const next: DemoForecast = await response.json();
       setDemo(next);
       setMessages([]);
       setError(null);
+      chatVersion.current++;
       return true;
-    } catch {
+    } catch (failure) {
       setForecastError(
-        'The forecast could not be updated. Check your dates and amounts, then try again. Your previous forecast is still shown.',
+        sandbox && failure instanceof Error
+          ? `${failure.message} Your previous forecast is still shown.`
+          : 'The forecast could not be updated. Check your dates and amounts, then try again. Your previous forecast is still shown.',
       );
       return false;
+    } finally {
+      forecastInFlight.current = false;
+      setForecastBusy(false);
+    }
+  }
+
+  async function refreshSandbox() {
+    if (!sandbox || inFlight.current || forecastInFlight.current) return;
+    forecastInFlight.current = true;
+    setForecastBusy(true);
+    setForecastError(null);
+    try {
+      const response = await fetch('/api/sandbox', {
+        signal: AbortSignal.timeout(40000),
+      });
+      const body = await response.json();
+      if (!response.ok)
+        throw new Error(body.error ?? 'Sandbox refresh failed.');
+      setDemo(body);
+      setMessages([]);
+      setError(null);
+      chatVersion.current++;
+    } catch (failure) {
+      setForecastError(
+        `${failure instanceof Error ? failure.message : 'Sandbox refresh failed.'} The previous observation is still shown; it has not been refreshed.`,
+      );
     } finally {
       forecastInFlight.current = false;
       setForecastBusy(false);
@@ -178,7 +239,7 @@ export function Dashboard({
         </a>
         <span className="demo-chip">
           <span />
-          Synthetic demo
+          {sandbox ? 'Plaid Sandbox' : 'Synthetic demo'}
         </span>
       </header>
       <main id="main" className="workspace">
@@ -190,38 +251,74 @@ export function Dashboard({
               <br /> A little more clarity.
             </h1>
             <p className="intro">
-              Welcome back, Alex. Here’s where your accounts stand.
+              {sandbox
+                ? 'Your connected test checking and savings, in one view.'
+                : 'Welcome back, Alex. Here’s where your accounts stand.'}
             </p>
           </div>
           <div className="snapshot-note">
             <span className="status-dot" />
-            Fixed demo clock
+            {sandbox ? 'Balance observation' : 'Fixed demo clock'}
             <br />
-            <strong>September 8, 2026 · 4:00 p.m. UTC</strong>
+            <strong>
+              {sandbox
+                ? `${snapshot.asOf.slice(0, 10)} · ${snapshot.asOf.slice(11, 16)} UTC`
+                : 'September 8, 2026 · 4:00 p.m. UTC'}
+            </strong>
           </div>
         </div>
         <div className="scenario-controls">
-          <label htmlFor="scenario">Demo scenario</label>
-          <select
-            id="scenario"
-            value={demo.scenario}
-            disabled={busy || forecastBusy}
-            onChange={(event) => {
-              void changeDemo({
-                scenario: event.target.value as DemoScenario,
-                corrections: [],
-              });
-            }}
-          >
-            <option value="shortfall">Subscription shortfall</option>
-            <option value="sufficient">Sufficient funds</option>
-            <option value="uncertain">Uncertain payment dates</option>
-            <option value="stale">Stale account data</option>
-          </select>
-          <span>All scenarios use synthetic data.</span>
+          {sandbox ? (
+            <>
+              <span>Provider-generated test data · Read-only</span>
+              <Button
+                variant="outline"
+                disabled={busy || forecastBusy}
+                onClick={() => {
+                  void refreshSandbox();
+                }}
+              >
+                Refresh Sandbox data
+              </Button>
+              <Link href="/">Synthetic demo</Link>
+            </>
+          ) : (
+            <>
+              <label htmlFor="scenario">Demo scenario</label>
+              <select
+                id="scenario"
+                value={demo.scenario}
+                disabled={busy || forecastBusy}
+                onChange={(event) => {
+                  void changeDemo({
+                    scenario: event.target.value as DemoScenario,
+                    corrections: [],
+                  });
+                }}
+              >
+                <option value="shortfall">Subscription shortfall</option>
+                <option value="sufficient">Sufficient funds</option>
+                <option value="uncertain">Uncertain payment dates</option>
+                <option value="stale">Stale account data</option>
+              </select>
+              <span>All scenarios use synthetic data.</span>
+              {sandboxAvailable && (
+                <Link href="/sandbox">Plaid Sandbox accounts</Link>
+              )}
+            </>
+          )}
           <a href="#assistant-heading">Ask assistant</a>
           {forecastBusy && <output>Updating forecast…</output>}
         </div>
+        {sandbox && (
+          <p className="sandbox-scope">
+            Showing {snapshot.accounts.length} USD checking and savings accounts
+            from {snapshot.coverage?.totalAccounts ?? snapshot.accounts.length}{' '}
+            linked test accounts. Other account types and currencies are
+            excluded. Reads are cached for one minute; refresh resets
+            corrections and chat.
+          </p>
+        )}
         {forecastError && (
           <p className="error-message" role="alert">
             {forecastError}
@@ -231,7 +328,10 @@ export function Dashboard({
           <section className="overview" aria-label="Account overview">
             <div className="section-heading">
               <h2>Your accounts</h2>
-              <span>2 synthetic accounts · USD</span>
+              <span>
+                {snapshot.accounts.length} {sandbox ? 'Sandbox' : 'synthetic'}{' '}
+                accounts · USD
+              </span>
             </div>
             <div className="account-grid">
               {snapshot.accounts.map((account) => (
@@ -247,7 +347,9 @@ export function Dashboard({
                         <Landmark size={22} />
                       )}
                     </span>
-                    <span>•• {account.mask}</span>
+                    <span>
+                      {account.mask ? `•• ${account.mask}` : 'No mask provided'}
+                    </span>
                   </div>
                   <h3>{account.name}</h3>
                   <p className="account-balance">
@@ -264,20 +366,37 @@ export function Dashboard({
             <div className="funds-note">
               <ShieldCheck size={20} />
               <p>
-                The <strong>$30.50 pending debit</strong> is already included in
-                your checking account’s available balance.
+                {sandbox ? (
+                  'Available balances come from Plaid Sandbox. Pending activity with an unknown effect on those balances is flagged in the forecast.'
+                ) : (
+                  <>
+                    The <strong>$30.50 pending debit</strong> is already
+                    included in your checking account’s available balance.
+                  </>
+                )}
               </p>
             </div>
-            <MonitorPanel
-              demo={demo}
-              settings={fundingSettings}
-              onSession={onSession}
-              onSettings={(settings) => {
-                setFundingSettings(settings);
-                setMessages([]);
-              }}
-              busy={busy || forecastBusy}
-            />
+            {sandbox ? (
+              <div className="sandbox-transfer-note">
+                <strong>Transfers are not connected</strong>
+                <p>
+                  This view reads Plaid test data. Automated monitoring and
+                  approved provider transfers will be connected separately;
+                  refreshing or chatting cannot move money.
+                </p>
+              </div>
+            ) : (
+              <MonitorPanel
+                demo={demo}
+                settings={fundingSettings}
+                onSession={onSession}
+                onSettings={(settings) => {
+                  setFundingSettings(settings);
+                  setMessages([]);
+                }}
+                busy={busy || forecastBusy}
+              />
+            )}
             <ForecastPanel
               demo={demo}
               busy={busy || forecastBusy}
@@ -286,7 +405,9 @@ export function Dashboard({
             <section className="activity" aria-labelledby="activity-heading">
               <div className="section-heading">
                 <h2 id="activity-heading">Recent activity</h2>
-                <span>Synthetic history</span>
+                <span>
+                  {sandbox ? 'Plaid Sandbox history' : 'Synthetic history'}
+                </span>
               </div>
               <ul className="transaction-list">
                 {snapshot.transactions.slice(0, 6).map((transaction) => (
@@ -308,7 +429,10 @@ export function Dashboard({
                           day: 'numeric',
                           timeZone: 'UTC',
                         }).format(new Date(transaction.date))}{' '}
-                        · Checking
+                        ·{' '}
+                        {snapshot.accounts.find(
+                          (account) => account.id === transaction.accountId,
+                        )?.name ?? 'Account'}
                       </span>
                     </div>
                     <div className="transaction-amount">
@@ -392,7 +516,10 @@ export function Dashboard({
                   {message.role === 'assistant' &&
                   message.reply?.reads.length ? (
                     <span className="read-receipt">
-                      <ShieldCheck size={13} /> Read synthetic{' '}
+                      <ShieldCheck size={13} /> Read{' '}
+                      {message.reply.source === 'plaid_sandbox'
+                        ? 'Plaid Sandbox'
+                        : 'synthetic'}{' '}
                       {message.reply.reads[0] === 'get_funding_proposal'
                         ? 'funding proposal'
                         : message.reply.reads[0] === 'get_forecast'
@@ -459,7 +586,10 @@ export function Dashboard({
               )}
               <p className="assistant-footnote">
                 <MessageCircle size={13} />
-                Balances, bills & forecasts · Mock assistant
+                Balances, bills & forecasts ·{' '}
+                {assistantProvider === 'mock'
+                  ? 'Mock assistant'
+                  : 'Strands assistant'}
               </p>
             </div>
           </aside>
@@ -467,7 +597,9 @@ export function Dashboard({
         <footer>
           <span>PennyAhead · Stay a step ahead of your bills.</span>
           <span>
-            Synthetic demo · Transfers are labeled by their actual environment.
+            {sandbox
+              ? 'Plaid Sandbox test data · No real bank connected · Read-only'
+              : 'Synthetic demo · Transfers are labeled by their actual environment.'}
           </span>
         </footer>
       </main>

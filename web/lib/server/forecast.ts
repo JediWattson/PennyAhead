@@ -180,6 +180,9 @@ export function buildForecast(
   const observations = [
     Date.parse(snapshot.asOf),
     Date.parse(account.observedAt),
+    ...(snapshot.coverage?.transactionsUpdatedAt
+      ? [Date.parse(snapshot.coverage.transactionsUpdatedAt)]
+      : []),
   ];
   if (
     !Number.isFinite(now) ||
@@ -219,12 +222,28 @@ export function buildForecast(
       corrected: true,
     });
   }
-  const warnings: string[] = [];
+  const warnings: string[] = [...(snapshot.coverage?.warnings ?? [])];
   let incomplete = observations.some((value) => value > now);
   if (incomplete)
     warnings.push(
       'The data timestamp is in the future; verify it before relying on this forecast.',
     );
+  if (
+    snapshot.coverage &&
+    (!snapshot.coverage.historyComplete ||
+      !snapshot.coverage.transactionsUpdatedAt)
+  ) {
+    incomplete = true;
+    warnings.push(
+      'Transaction history is still loading or its last successful update is unavailable. The forecast needs verification.',
+    );
+  }
+  if (snapshot.source === 'plaid_sandbox' && bills.length === 0) {
+    incomplete = true;
+    warnings.push(
+      'No monthly bills could be confirmed from this history. This projection does not establish that upcoming spending is covered.',
+    );
+  }
   let startingCents = account.availableCents;
   for (const txn of transactions.filter(
     (entry) => entry.status === 'pending',

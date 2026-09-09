@@ -5,6 +5,7 @@ import type {
   DemoOptions,
   MonitorConfig,
   FundingPlan,
+  ForecastReport,
 } from '../contracts.ts';
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
@@ -16,14 +17,17 @@ export class MockAssistant implements Assistant {
   private bank: BankDataProvider;
   private sessionPlan?: FundingPlan;
   private sessionBound: boolean;
+  private observedForecast?: ForecastReport;
   constructor(
     bank: BankDataProvider,
     sessionPlan?: FundingPlan,
     sessionBound = false,
+    observedForecast?: ForecastReport,
   ) {
     this.bank = bank;
     this.sessionPlan = sessionPlan;
     this.sessionBound = sessionBound;
+    this.observedForecast = observedForecast;
   }
 
   async reply(
@@ -33,6 +37,7 @@ export class MockAssistant implements Assistant {
     monitoring?: MonitorConfig,
   ): Promise<AssistantReply> {
     const query = message.trim().toLowerCase();
+    const sandbox = this.bank.source === 'plaid_sandbox';
     const base: AssistantReply = {
       mode: 'mock',
       source: this.bank.source,
@@ -41,6 +46,7 @@ export class MockAssistant implements Assistant {
       reads: [],
     };
     if (
+      !sandbox &&
       /\b(proposal|cover|funding)\b/.test(query) &&
       !/\b(approve|execute|send)\b/.test(query)
     ) {
@@ -52,7 +58,7 @@ export class MockAssistant implements Assistant {
         timing: 'standard',
       };
       const snapshot = await (
-        options && !this.sessionBound
+        options && !this.sessionBound && !sandbox
           ? new FixtureBankProvider(options.scenario)
           : this.bank
       ).getSnapshot(ownerId);
@@ -78,16 +84,18 @@ export class MockAssistant implements Assistant {
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
       return {
         ...base,
-        text: 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
+        text: sandbox
+          ? 'This Plaid Sandbox view is read-only. No transfer was created. Provider transfers are not connected yet.'
+          : 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
       };
     }
     if (
-      /\b(bill|bills|forecast|shortfall|subscription|subscriptions|afford)\b/.test(
+      /\b(bill|bills|forecast|shortfall|subscription|subscriptions|afford|cover|funding|proposal)\b/.test(
         query,
       )
     ) {
       const snapshot = await (
-        options && !this.sessionBound
+        options && !this.sessionBound && !sandbox
           ? new FixtureBankProvider(options.scenario)
           : this.bank
       ).getSnapshot(ownerId);
@@ -95,12 +103,14 @@ export class MockAssistant implements Assistant {
         (entry) => entry.kind === 'checking',
       );
       if (!account) throw new Error('Checking account unavailable');
-      const forecast = buildForecast(
-        snapshot,
-        account.id,
-        DEMO_NOW,
-        options?.corrections,
-      );
+      const forecast =
+        this.observedForecast ??
+        buildForecast(
+          snapshot,
+          account.id,
+          sandbox ? new Date().toISOString() : DEMO_NOW,
+          options?.corrections,
+        );
       const summary =
         forecast.shortageCents > 0
           ? `Checking is projected to fall below zero on ${forecast.firstShortfall}, with a maximum shortage of ${formatMoney(forecast.shortageCents)} over 14 days.`
@@ -109,7 +119,7 @@ export class MockAssistant implements Assistant {
         ...base,
         asOf: snapshot.asOf,
         reads: ['get_forecast'],
-        text: `${summary}\n\n${forecast.warnings.join(' ')}\n\nThis is a deterministic forecast of synthetic data using the September 8 demo clock and your current corrections. It excludes unrecorded spending and unconfirmed income. No transfer was created.`,
+        text: `${summary}\n\n${forecast.warnings.join(' ')}\n\n${sandbox ? `This is a deterministic forecast of Plaid Sandbox test data evaluated at ${forecast.evaluatedAt}, with your current corrections. Provider transfers are not connected.` : 'This is a deterministic forecast of synthetic data using the September 8 demo clock and your current corrections.'} It excludes unrecorded spending and unconfirmed income. No transfer was created.`,
       };
     }
     if (
@@ -123,7 +133,7 @@ export class MockAssistant implements Assistant {
       };
     }
     const snapshot = await (
-      options && !this.sessionBound
+      options && !this.sessionBound && !sandbox
         ? new FixtureBankProvider(options.scenario)
         : this.bank
     ).getSnapshot(ownerId);
@@ -150,7 +160,7 @@ export class MockAssistant implements Assistant {
                   `${txn.merchant}: ${formatMoney(txn.amountCents)} (${txn.status}, ${txn.date.slice(0, 10)}).`,
               )
               .join('\n')
-          : 'There are no transactions for this account in the synthetic history.',
+          : `There are no transactions for this account in the ${sandbox ? 'Plaid Sandbox' : 'synthetic'} history.`,
       };
     }
     const text = accounts
@@ -162,7 +172,7 @@ export class MockAssistant implements Assistant {
     return {
       ...context,
       reads: ['get_accounts'],
-      text: `${text}\n\nThese are synthetic balances from the ${snapshot.asOf.slice(0, 10)} demo snapshot.`,
+      text: `${text}\n\n${sandbox ? `These are Plaid Sandbox test balances observed at ${snapshot.asOf}. Pending-transaction balance treatment is not assumed.` : `These are synthetic balances from the ${snapshot.asOf.slice(0, 10)} demo snapshot.`}`,
     };
   }
 }

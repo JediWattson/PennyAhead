@@ -4,6 +4,33 @@
 
 @custom-variant dark (&:is(.dark *));
 
+.sandbox-loading {
+  padding-top: 80px;
+  max-width: 760px;
+}
+.sandbox-loading p {
+  margin-block: 20px;
+}
+.sandbox-scope {
+  margin: 0 0 24px;
+  color: #66716b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.sandbox-transfer-note {
+  padding: 20px;
+  border: 1px solid #dce2db;
+  border-radius: 16px;
+  background: #f6f8f3;
+  margin: 24px 0;
+}
+.sandbox-transfer-note p {
+  margin: 8px 0 0;
+  color: #66716b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

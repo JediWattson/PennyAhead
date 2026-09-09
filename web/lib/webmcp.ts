@@ -24,14 +24,16 @@ export function registerAccountReader(snapshot: BankSnapshot): () => void {
       context.registerTool(
         {
           name: 'read_demo_accounts',
-          description:
-            'Read the synthetic account balances displayed in PennyAhead. No real bank connection or live model is involved.',
+          description: `Read the ${snapshot.source === 'plaid_sandbox' ? 'Plaid Sandbox test' : 'synthetic'} account balances displayed in PennyAhead. This tool does not connect a real bank or move money.`,
           inputSchema: {
             type: 'object',
             properties: {},
             additionalProperties: false,
           },
-          annotations: { readOnlyHint: true, untrustedContentHint: false },
+          annotations: {
+            readOnlyHint: true,
+            untrustedContentHint: snapshot.source === 'plaid_sandbox',
+          },
           execute(input: unknown) {
             if (
               !input ||
