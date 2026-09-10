@@ -6,12 +6,14 @@ import {
   type Message,
   type StreamOptions,
 } from '@strands-agents/sdk';
+import { DEMO_GROWTH_INPUTS } from '../lib/growth-contracts.ts';
 import { strandsReply } from '../lib/server/strands-assistant.ts';
 import { MonitorStore } from '../lib/server/monitor-store.ts';
 import { getSessionDemo } from '../lib/server/session-bank.ts';
 class ScriptedModel extends Model {
   calls = 0;
   invalidInput = false;
+  readName: 'get_accounts' | 'get_growth_plan' = 'get_accounts';
   updateConfig() {}
   getConfig() {
     return { modelId: 'test-fixture', contextWindowLimit: 100000 };
@@ -20,7 +22,7 @@ class ScriptedModel extends Model {
     messages: Message[],
     options?: StreamOptions,
   ): AsyncIterable<ModelStreamEvent> {
-    assert.equal(options!.toolSpecs!.length, 6);
+    assert.equal(options!.toolSpecs!.length, 7);
     assert(
       options!.toolSpecs!.every((t) => !/approve|execute|settle/.test(t.name)),
     );
@@ -30,7 +32,7 @@ class ScriptedModel extends Model {
         type: 'modelContentBlockStartEvent',
         start: {
           type: 'toolUseStart',
-          name: 'get_accounts',
+          name: this.readName,
           toolUseId: 'test-read',
         },
       };
@@ -45,7 +47,11 @@ class ScriptedModel extends Model {
       yield { type: 'modelMessageStopEvent', stopReason: 'toolUse' };
     } else {
       const serialized = JSON.stringify(messages);
-      if (!this.invalidInput) assert.match(serialized, /14860/);
+      if (!this.invalidInput)
+        assert.match(
+          serialized,
+          this.readName === 'get_growth_plan' ? /hysaSuggestedCents/ : /14860/,
+        );
       yield { type: 'modelContentBlockStartEvent' };
       yield {
         type: 'modelContentBlockDeltaEvent',
@@ -94,6 +100,36 @@ void test('real Strands loop dispatches a fixture model tool request and records
     );
     assert.deepEqual(invalid.reads, []);
     assert.deepEqual(invalid.toolTrace, []);
+  } finally {
+    store.close();
+  }
+});
+
+void test('Strands growth tool reads the same backend allocation and cannot mutate the ledger', async () => {
+  const store = new MonitorStore(':memory:');
+  try {
+    const state = store.create({
+      scenario: 'growth',
+      corrections: [],
+      enabled: true,
+      savingsMinimumCents: 100000,
+      timing: 'standard',
+    });
+    const model = new ScriptedModel();
+    model.readName = 'get_growth_plan';
+    const reply = await strandsReply(
+      'How much can I save or invest?',
+      await getSessionDemo(state),
+      state,
+      'openai',
+      model,
+      DEMO_GROWTH_INPUTS,
+    );
+    assert.deepEqual(reply.reads, ['get_growth_plan']);
+    assert.deepEqual(reply.toolTrace, [
+      { name: 'get_growth_plan', status: 'completed' },
+    ]);
+    assert.equal(store.read(state.id)!.transfers.length, 0);
   } finally {
     store.close();
   }

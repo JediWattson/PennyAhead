@@ -5,7 +5,7 @@ test('four repeatable scenarios explain shortfall, sufficient funds, timing unce
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/?scenario=shortfall');
   await expect(page.getByTestId('forecast-title')).toHaveText(
     '$35.36 projected shortfall',
   );
@@ -34,7 +34,7 @@ test('four repeatable scenarios explain shortfall, sufficient funds, timing unce
 test('a bill correction updates the forecast and the mock assistant consistently, and reset restores it', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?scenario=shortfall');
   const bill = page.getByTestId('bill-row').filter({
     has: page.getByRole('heading', {
       name: 'Adobe Creative Cloud',
@@ -60,7 +60,7 @@ test('a bill correction updates the forecast and the mock assistant consistently
 test('a failed correction keeps the displayed scenario and balances intact', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?scenario=shortfall');
   await page.route('**/api/forecast', async (route) => {
     await route.fulfill({ status: 500, body: '{}' });
   });
@@ -82,7 +82,7 @@ test('mobile and desktop layouts keep the forecast readable without horizontal o
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(viewport);
-    await page.goto('/');
+    await page.goto('/?scenario=shortfall');
     await expect(page.getByTestId('forecast-title')).toBeVisible();
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > window.innerWidth,

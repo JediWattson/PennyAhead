@@ -10,7 +10,7 @@ The fixture owner is a public, read-only demo identity, not an authenticated ban
 
 - [x] Select OpenAI as the initial provider, using Strands with a provider boundary that can support Amazon Bedrock later.
 - [ ] Finish secure API-key setup and confirm a project-local secret destination. The setup picker was opened; a saved key and successful API access have not been verified.
-- [x] Install the Strands TypeScript SDK and implement a live adapter with six narrow, server-scoped tools.
+- [x] Install the Strands TypeScript SDK and implement a live adapter with seven narrow, server-scoped tools, including the savings and retirement plan.
 - [x] Keep bank calculations in backend code and provide no browser/model parameter for changing the authenticated owner.
 - [ ] Verify a model-selected balance tool call against the fixture provider and record its result.
 - [x] Make the UI identify live model responses separately from mock responses.

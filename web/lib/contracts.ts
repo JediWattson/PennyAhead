@@ -72,6 +72,7 @@ export interface AssistantReply {
   asOf: string | null;
   /** Backend reads actually executed; live responses also include a tool trace. */
   reads: Array<
+    | 'get_growth_plan'
     | 'get_accounts'
     | 'get_transactions'
     | 'get_forecast'
@@ -81,7 +82,12 @@ export interface AssistantReply {
   >;
   toolTrace?: Array<{ name: string; status: 'completed' }>;
 }
-export type DemoScenario = 'shortfall' | 'sufficient' | 'uncertain' | 'stale';
+export type DemoScenario =
+  | 'growth'
+  | 'shortfall'
+  | 'sufficient'
+  | 'uncertain'
+  | 'stale';
 export interface BillCorrection {
   billId: string;
   amountCents: number;

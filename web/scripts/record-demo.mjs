@@ -26,7 +26,7 @@ async function hold(ms = 5000) {
   await page.waitForTimeout(ms);
 }
 try {
-  await page.goto(process.env.DEMO_URL ?? 'http://127.0.0.1:3000');
+  await page.goto(process.env.DEMO_URL ?? 'http://127.0.0.1:3000/?scenario=shortfall');
   await caption(
     'PennyAhead · A step ahead of your bills. Synthetic accounts, mock assistant, local simulated transfers.',
   );

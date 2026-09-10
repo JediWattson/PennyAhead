@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 test('approved simulation is pending until settlement, updates forecast and chat, then resets', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?scenario=shortfall');
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });
@@ -51,7 +51,7 @@ test('declining does not send and automatic funding can be revoked before a late
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
+  await page.goto('/?scenario=shortfall');
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });

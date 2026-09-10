@@ -99,6 +99,10 @@ export class FixtureBankProvider implements BankDataProvider {
   async getSnapshot(ownerId: string): Promise<BankSnapshot> {
     if (ownerId !== DEMO_OWNER_ID) throw new Error('Demo owner not found');
     const result = structuredClone(snapshot);
+    if (this.scenario === 'growth') {
+      result.accounts[0].availableCents = 350000;
+      result.accounts[0].currentCents = 353050;
+    }
     if (this.scenario === 'sufficient') {
       result.accounts[0].availableCents = 50000;
       result.accounts[0].currentCents = 53050;

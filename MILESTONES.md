@@ -1,6 +1,22 @@
 # PennyAhead milestone plan
 
-**Status: local M1–M3, M4 approval/simulation and M5 product flows are implemented. The read-only Plaid Sandbox view connects provider test balances and transactions to forecasting and scripted chat. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, provider transfers, public deployment and submission remain open.**
+**Status: the Save and invest planning experience is implemented as the primary product flow. Existing local M1–M3, M4 approval/simulation and M5 product flows are implemented. The read-only Plaid Sandbox view connects provider test balances and transactions to forecasting and scripted chat. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, provider transfers, public deployment and submission remain open.**
+
+## Current priority — Savings and retirement progress
+
+**Product focus set September 10:** help users decide how much to put toward savings and retirement while preserving spending money. Bill reminders and shortage funding remain supporting features.
+
+- [x] Lead the dashboard with a repeatable Save and invest example.
+- [x] Reserve reviewed 30-day spending and a checking buffer; never treat the 14-day forecast alone as investable surplus.
+- [x] Suggest an amount toward a cash-reserve goal, with an illustrative savings APY.
+- [x] Add a limited 2026 Roth contribution planner with combined-IRA room, compensation checks, user goals and explicit review states for unsupported cases.
+- [x] Give the assistant a read-only growth-plan tool that matches the dashboard's backend calculations.
+- [x] Hide stale suggestions when assumptions or balances change; keep growth APIs behind private judge access.
+- [ ] Verify the live Strands growth-plan explanation using actual model-selected tool calls.
+- [ ] Add durable goals/progress and explicitly approved contribution simulation with separate destination receipts.
+- [ ] Verify a supported provider contribution flow before claiming external execution.
+
+**First planning milestone:** users can understand the available amount, change a goal, see why a suggestion pauses, and retain bill protection. [Calculation scope and next steps](docs/GROWTH.md). Growth allocations are previews; existing bill-funding simulations remain separate.
 
 ## M1 — Runnable foundation and demo accounts
 
@@ -15,7 +31,7 @@
 
 **Local foundation criterion (M1a):** A user can open the app, see two synthetic accounts, and ask the mock assistant about their balances. The UI identifies mock responses and synthetic data.
 
-**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. The current build passes 60 backend/API tests, 14 production browser checks plus the opt-in actual Plaid Sandbox browser check, TypeScript checking, application lint, and the Next.js production build. Desktop and mobile screenshots have been inspected.
+**Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. Current validation includes growth, bill forecasting, access control and simulation tests, production browser checks, TypeScript, lint and the production build; the live Plaid Sandbox check is opt-in.
 
 **Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
 
@@ -98,8 +114,8 @@
 
 ## Priorities and checkpoints
 
-- Preserve the complete path: background detection → funding proposal → approval → sandbox transfer → outcome.
-- If time gets tight, cut automatic transfers, extra notification channels, and visual extras first.
+- Prioritize the complete growth-planning path: reviewed spending and goals → protected cash → savings/Roth allocation → explanation → changed-input review. Preserve the existing bill-protection path alongside it.
+- Complete live agent verification and the judge-accessible planning experience before expanding provider execution, automatic contributions, extra notification channels or visual extras.
 - An agent cannot promise that an external transfer initiated shortly before a charge will arrive in time.
 - Keep synthetic records, local simulations, and provider sandbox evidence distinct in the demo and submission.
 - Request hackathon AWS credits by **September 11, 2026 at 3 p.m. Eastern / noon Pacific**, while available.

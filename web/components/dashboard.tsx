@@ -31,6 +31,9 @@ import type {
 } from '../lib/contracts';
 import { formatMoney } from '../lib/money';
 import { registerAccountReader } from '../lib/webmcp';
+import { GrowthPanel } from './growth-panel';
+import { DEMO_GROWTH_INPUTS, type GrowthInputs } from '../lib/growth-contracts';
+import { growthContext } from '../lib/growth-context';
 import { ForecastPanel } from './forecast-panel';
 import { MonitorPanel, type FundingSettings } from './monitor-panel';
 
@@ -38,6 +41,7 @@ type Message =
   | { role: 'user'; text: string }
   | { role: 'assistant'; text: string; reply?: AssistantReply };
 const suggestions = [
+  'How much can I save or invest?',
   'What are my balances?',
   'Why is my available balance lower?',
   'Show recent transactions',
@@ -55,15 +59,24 @@ export function Dashboard({
   sandboxAvailable?: boolean;
 }) {
   const [demo, setDemo] = useState(initialDemo);
+  const [growthInputs, setGrowthInputs] = useState<GrowthInputs>(() =>
+    structuredClone(DEMO_GROWTH_INPUTS),
+  );
   const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
     enabled: true,
     savingsMinimumCents: 100000,
     timing: 'standard',
   });
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sessionContext, setSessionContext] = useState('');
   const ledgerVersion = useRef<string | null>(null);
   const snapshot = demo.snapshot;
   const sandbox = snapshot.source === 'plaid_sandbox';
+  const demoSessionReady =
+    sandbox ||
+    (!!sessionId &&
+      sessionContext ===
+        growthContext(demo, fundingSettings.savingsMinimumCents));
   const [forecastBusy, setForecastBusy] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const forecastInFlight = useRef(false);
@@ -78,7 +91,7 @@ export function Dashboard({
       role: 'assistant',
       text: sandbox
         ? 'Your Plaid Sandbox test accounts are connected. Ask about the balances, forecast, or recent activity shown here. I use scripted replies; these are test records and no real money is connected.'
-        : 'Hi Alex. Let’s take a look at your accounts. Ask me about your balances, bills, or recent activity. The accounts and money in this demo are synthetic.',
+        : 'Hi Alex. Let’s make room for your savings and retirement goals while protecting the money you need for spending. Ask me to explain your Save and invest plan, your balances, or upcoming bills. This demo uses synthetic accounts and a sample financial profile.',
     },
   ]);
 
@@ -93,6 +106,9 @@ export function Dashboard({
     }
     ledgerVersion.current = version;
     setSessionId(state.id);
+    setSessionContext(
+      growthContext(state.demo, state.config.savingsMinimumCents),
+    );
     setDemo((previous) =>
       previous.scenario === state.demo.scenario &&
       JSON.stringify(previous.corrections) ===
@@ -131,6 +147,11 @@ export function Dashboard({
                   scenario: demo.scenario,
                   corrections: demo.corrections,
                   monitoring: fundingSettings,
+                  growth: growthInputs,
+                  growthContext: growthContext(
+                    demo,
+                    fundingSettings.savingsMinimumCents,
+                  ),
                 },
           ),
           signal: AbortSignal.timeout(35000),
@@ -245,15 +266,17 @@ export function Dashboard({
       <main id="main" className="workspace">
         <div className="page-heading">
           <div>
-            <p className="eyebrow">YOUR MONEY, IN VIEW</p>
+            <p className="eyebrow">
+              {sandbox ? 'YOUR MONEY, IN VIEW' : 'YOUR NEXT STEP, IN REACH'}
+            </p>
             <h1>
-              Your accounts.
-              <br /> A little more clarity.
+              {sandbox ? 'Your accounts.' : 'A little saved.'}
+              <br /> {sandbox ? 'A little more clarity.' : 'A future built.'}
             </h1>
             <p className="intro">
               {sandbox
                 ? 'Your connected test checking and savings, in one view.'
-                : 'Welcome back, Alex. Here’s where your accounts stand.'}
+                : 'Turn money left after spending into progress toward your savings and retirement goals.'}
             </p>
           </div>
           <div className="snapshot-note">
@@ -273,7 +296,7 @@ export function Dashboard({
               <span>Provider-generated test data · Read-only</span>
               <Button
                 variant="outline"
-                disabled={busy || forecastBusy}
+                disabled={busy || forecastBusy || !demoSessionReady}
                 onClick={() => {
                   void refreshSandbox();
                 }}
@@ -288,7 +311,7 @@ export function Dashboard({
               <select
                 id="scenario"
                 value={demo.scenario}
-                disabled={busy || forecastBusy}
+                disabled={busy || forecastBusy || !demoSessionReady}
                 onChange={(event) => {
                   void changeDemo({
                     scenario: event.target.value as DemoScenario,
@@ -296,6 +319,7 @@ export function Dashboard({
                   });
                 }}
               >
+                <option value="growth">Save and invest</option>
                 <option value="shortfall">Subscription shortfall</option>
                 <option value="sufficient">Sufficient funds</option>
                 <option value="uncertain">Uncertain payment dates</option>
@@ -326,6 +350,27 @@ export function Dashboard({
         )}
         <div className="dashboard-grid">
           <section className="overview" aria-label="Account overview">
+            {!sandbox && (
+              <GrowthPanel
+                demo={demo}
+                inputs={growthInputs}
+                savingsMinimumCents={fundingSettings.savingsMinimumCents}
+                sessionId={demoSessionReady ? sessionId : null}
+                busy={busy || forecastBusy}
+                onChange={(next) => {
+                  setGrowthInputs(next);
+                  setMessages([]);
+                  chatVersion.current++;
+                }}
+                onAsk={() => {
+                  document
+                    .getElementById('assistant-heading')
+                    ?.scrollIntoView({ block: 'start' });
+                  void ask('Explain my savings and Roth plan');
+                }}
+              />
+            )}
+
             <div className="section-heading">
               <h2>Your accounts</h2>
               <span>
@@ -520,13 +565,15 @@ export function Dashboard({
                       {message.reply.source === 'plaid_sandbox'
                         ? 'Plaid Sandbox'
                         : 'synthetic'}{' '}
-                      {message.reply.reads[0] === 'get_funding_proposal'
-                        ? 'funding proposal'
-                        : message.reply.reads[0] === 'get_forecast'
-                          ? 'balance forecast'
-                          : message.reply.reads[0] === 'get_accounts'
-                            ? 'account balances'
-                            : 'transaction history'}{' '}
+                      {message.reply.reads[0] === 'get_growth_plan'
+                        ? 'savings and Roth plan'
+                        : message.reply.reads[0] === 'get_funding_proposal'
+                          ? 'funding proposal'
+                          : message.reply.reads[0] === 'get_forecast'
+                            ? 'balance forecast'
+                            : message.reply.reads[0] === 'get_accounts'
+                              ? 'account balances'
+                              : 'transaction history'}{' '}
                       · {message.reply.asOf?.slice(0, 10)} snapshot
                     </span>
                   ) : null}
@@ -542,21 +589,27 @@ export function Dashboard({
             <div className="assistant-controls">
               <p className="suggestion-label">TRY ASKING</p>
               <div className="suggestions">
-                {suggestions.map((suggestion) => (
-                  <Button
-                    key={suggestion}
-                    variant="outline"
-                    className="suggestion"
-                    disabled={busy || forecastBusy}
-                    onClick={() => {
-                      setDraft(suggestion);
-                      void ask(suggestion);
-                    }}
-                  >
-                    {suggestion}
-                    <ArrowRight size={15} />
-                  </Button>
-                ))}
+                {suggestions
+                  .filter(
+                    (suggestion) =>
+                      !sandbox ||
+                      suggestion !== 'How much can I save or invest?',
+                  )
+                  .map((suggestion) => (
+                    <Button
+                      key={suggestion}
+                      variant="outline"
+                      className="suggestion"
+                      disabled={busy || forecastBusy || !demoSessionReady}
+                      onClick={() => {
+                        setDraft(suggestion);
+                        void ask(suggestion);
+                      }}
+                    >
+                      {suggestion}
+                      <ArrowRight size={15} />
+                    </Button>
+                  ))}
               </div>
               <form onSubmit={submit} className="composer">
                 <label className="sr-only" htmlFor="question">
@@ -566,7 +619,7 @@ export function Dashboard({
                   id="question"
                   value={draft}
                   maxLength={1000}
-                  disabled={busy || forecastBusy}
+                  disabled={busy || forecastBusy || !demoSessionReady}
                   onChange={(event) => setDraft(event.target.value)}
                   placeholder="Ask about your accounts…"
                 />
@@ -595,7 +648,7 @@ export function Dashboard({
           </aside>
         </div>
         <footer>
-          <span>PennyAhead · Stay a step ahead of your bills.</span>
+          <span>PennyAhead · A little saved. A future built.</span>
           <span>
             {sandbox
               ? 'Plaid Sandbox test data · No real bank connected · Read-only'

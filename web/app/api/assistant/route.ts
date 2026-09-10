@@ -1,3 +1,8 @@
+import {
+  buildGrowthPlan,
+  parseGrowthInputs,
+} from '../../../lib/server/growth-plan.ts';
+import { growthContext } from '../../../lib/growth-context.ts';
 import { requireInvite } from '../../../lib/server/invite-access.ts';
 import { bankProvider, DEMO_OWNER_ID } from '../../../lib/server/fixtures.ts';
 import { MockAssistant } from '../../../lib/server/mock-assistant.ts';
@@ -41,6 +46,8 @@ export async function POST(request: Request) {
   // No owner/account IDs are accepted from the browser or the assistant.
   try {
     const options = parseDemoOptions(body);
+    const growth =
+      'growth' in body ? parseGrowthInputs(body.growth) : undefined;
     const monitoring =
       'monitoring' in body
         ? parseMonitorConfig({ ...(body.monitoring as object), ...options })
@@ -51,6 +58,22 @@ export async function POST(request: Request) {
       return Response.json(
         { error: 'Demo session expired; reload the page.' },
         { status: 401 },
+      );
+    const demo = state ? await getSessionDemo(state) : null;
+    if (
+      growth &&
+      (!state ||
+        !demo ||
+        !('growthContext' in body) ||
+        body.growthContext !==
+          growthContext(demo, state.config.savingsMinimumCents))
+    )
+      return Response.json(
+        {
+          error:
+            'Your balances or plan settings changed. Wait for the plan to refresh, then ask again.',
+        },
+        { status: 409 },
       );
     const mode = assistantMode();
     if (mode !== 'mock') {
@@ -84,9 +107,11 @@ export async function POST(request: Request) {
       try {
         const reply = await strandsReply(
           body.message,
-          await getSessionDemo(state),
+          demo!,
           state,
           mode,
+          undefined,
+          growth,
         );
         return Response.json(reply, {
           headers: { 'Cache-Control': 'no-store' },
@@ -103,7 +128,6 @@ export async function POST(request: Request) {
         active.delete(token);
       }
     }
-    const demo = state ? await getSessionDemo(state) : null;
     const assistant =
       state && demo
         ? new MockAssistant(
@@ -113,6 +137,10 @@ export async function POST(request: Request) {
             },
             buildSessionPlan(state, demo.snapshot),
             true,
+            undefined,
+            growth
+              ? buildGrowthPlan(demo, growth, state.config.savingsMinimumCents)
+              : undefined,
           )
         : new MockAssistant(bankProvider);
     return Response.json(

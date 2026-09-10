@@ -1,3 +1,5 @@
+import type { GrowthPlan } from '../growth-contracts.ts';
+import { explainGrowthPlan } from './growth-plan.ts';
 import type {
   Assistant,
   AssistantReply,
@@ -18,16 +20,19 @@ export class MockAssistant implements Assistant {
   private sessionPlan?: FundingPlan;
   private sessionBound: boolean;
   private observedForecast?: ForecastReport;
+  private growthPlan?: GrowthPlan;
   constructor(
     bank: BankDataProvider,
     sessionPlan?: FundingPlan,
     sessionBound = false,
     observedForecast?: ForecastReport,
+    growthPlan?: GrowthPlan,
   ) {
     this.bank = bank;
     this.sessionPlan = sessionPlan;
     this.sessionBound = sessionBound;
     this.observedForecast = observedForecast;
+    this.growthPlan = growthPlan;
   }
 
   async reply(
@@ -47,6 +52,9 @@ export class MockAssistant implements Assistant {
     };
     if (
       !sandbox &&
+      !/\b(roth|ira|invest|retirement|save|growth|goals|allocate)\b|high[- ]yield/.test(
+        query,
+      ) &&
       /\b(proposal|cover|funding)\b/.test(query) &&
       !/\b(approve|execute|send)\b/.test(query)
     ) {
@@ -86,7 +94,25 @@ export class MockAssistant implements Assistant {
         ...base,
         text: sandbox
           ? 'This Plaid Sandbox view is read-only. No transfer was created. Provider transfers are not connected yet.'
-          : 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
+          : /\b(roth|ira|invest|investing|retirement|save|goals)\b|high[- ]yield/.test(
+                query,
+              )
+            ? 'Chat cannot authorize contributions. No transfer was created. Savings and Roth amounts are planning previews; contribution execution is not connected.'
+            : 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
+      };
+    }
+    if (
+      /\b(roth|ira|invest|investing|retirement|save|growth|goals|allocate)\b|high[- ]yield/.test(
+        query,
+      )
+    ) {
+      return {
+        ...base,
+        asOf: this.growthPlan?.asOf ?? null,
+        reads: this.growthPlan ? ['get_growth_plan'] : [],
+        text: this.growthPlan
+          ? explainGrowthPlan(this.growthPlan)
+          : 'Open the Save and invest planner to review your spending reserve, savings goal and Roth details. A 14-day bill forecast alone cannot establish an amount to invest. This planner currently uses synthetic data only.',
       };
     }
     if (

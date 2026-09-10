@@ -71,6 +71,7 @@ void test('signed sessions reject tampering, expiry, removed invites and rotated
 void test('all data API handlers reject unauthenticated calls independently of Proxy', async () => {
   configure();
   const routes = [
+    await import('../app/api/growth/route.ts'),
     await import('../app/api/accounts/route.ts'),
     await import('../app/api/forecast/route.ts'),
     await import('../app/api/assistant/route.ts'),

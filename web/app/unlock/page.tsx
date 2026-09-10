@@ -67,8 +67,8 @@ export default function UnlockPage() {
         <p className="eyebrow">A private preview</p>
         <h1 id="invite-title">A step ahead starts here.</h1>
         <p className="invite-intro">
-          Welcome, judges. Explore PennyAhead’s accounts, bill forecasts, and
-          funding decisions with your invitation.
+          Welcome, judges. Explore PennyAhead’s savings and retirement plans,
+          with spending and bill protection built in.
         </p>
         <form onSubmit={submit}>
           <label htmlFor="invite-token">Invitation token</label>

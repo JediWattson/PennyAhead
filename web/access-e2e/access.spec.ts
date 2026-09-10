@@ -14,6 +14,7 @@ test('public pages redirect and every data API blocks direct requests and proxy-
     await expect(page.getByTestId('proposal-title')).toHaveCount(0);
   }
   for (const path of [
+    '/api/growth',
     '/api/accounts',
     '/api/forecast',
     '/api/monitor',
@@ -45,7 +46,10 @@ test('mobile token entry unlocks the working demo, keeps access private, and loc
   await page.getByLabel('Invitation token').fill('wrong-token');
   await page.getByRole('button', { name: 'Unlock PennyAhead' }).click();
   await expect(page.locator('#invite-error')).toContainText('invalid');
-  await page.screenshot({ path: 'work/access-mobile-error.png', fullPage: true });
+  await page.screenshot({
+    path: 'work/access-mobile-error.png',
+    fullPage: true,
+  });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth > innerWidth,
@@ -53,6 +57,10 @@ test('mobile token entry unlocks the working demo, keeps access private, and loc
   ).toBe(false);
   await page.getByLabel('Invitation token').fill(token);
   await page.getByRole('button', { name: 'Unlock PennyAhead' }).click();
+  await expect(page.getByTestId('growth-title')).toContainText('$400.00', {
+    timeout: 15000,
+  });
+  await page.getByLabel('Demo scenario').selectOption('shortfall');
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 15000,
   });
@@ -102,6 +110,10 @@ test('private link clears its fragment, produces separate browser sessions, and 
   const observed: string[] = [];
   page.on('request', (request) => observed.push(request.url()));
   await page.goto('/unlock#token=' + token);
+  await expect(page.getByTestId('growth-title')).toContainText('$400.00', {
+    timeout: 15000,
+  });
+  await page.getByLabel('Demo scenario').selectOption('shortfall');
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 15000,
   });
@@ -113,8 +125,8 @@ test('private link clears its fragment, produces separate browser sessions, and 
   const second = await browser.newContext();
   const secondPage = await second.newPage();
   await secondPage.goto('http://127.0.0.1:3003/unlock#token=' + token);
-  await expect(secondPage.getByTestId('proposal-title')).toContainText(
-    '$35.36',
+  await expect(secondPage.getByTestId('growth-title')).toContainText(
+    '$400.00',
     { timeout: 15000 },
   );
   const secondCookie = (await second.cookies()).find(

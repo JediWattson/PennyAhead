@@ -12,6 +12,7 @@ export function parseDemoOptions(input: unknown): DemoOptions {
   const values = input as Record<string, unknown>;
   const scenario = values.scenario ?? 'shortfall';
   if (
+    scenario !== 'growth' &&
     scenario !== 'shortfall' &&
     scenario !== 'sufficient' &&
     scenario !== 'uncertain' &&

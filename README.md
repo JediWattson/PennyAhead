@@ -1,12 +1,12 @@
 # PennyAhead
 
-*Stay a step ahead of your bills.*
+*A little saved. A future built.*
 
-PennyAhead is a proposed U.S. consumer banking assistant for the [Agents for Humans hackathon](https://agentsforhumans.devpost.com/), in the Everyday Agents track. It watches upcoming bills, predicts account shortfalls, and helps move money between a user's own accounts within their approved rules.
+PennyAhead helps people turn available cash into progress toward savings and retirement goals. It combines balances, spending commitments and user-selected goals into an explainable savings and Roth IRA contribution plan. Bill forecasting protects the cash needed for everyday life. It is built for the [Agents for Humans hackathon](https://agentsforhumans.devpost.com/), in the Everyday Agents track.
 
 ## Project status
 
-Created September 8, 2026. The working local demo includes accounts, bill detection, a 14-day forecast, corrections, independent background monitoring, exact approval, pending/completed/failed simulated transfers, activity history, reset and optional revocable automation. It defaults to a clearly labeled mock assistant.
+Created September 8, 2026; product focus updated September 10. The main experience is **Save and invest**: a synthetic 30-day spending-reserve plan with cash-buffer protection, a high-yield savings goal, limited 2026 Roth contribution checks, editable assumptions, and matching agent explanations. Contributions are previews only. The supporting bill forecast, monitoring, approved transfer simulations and revocable automation remain available. Chat currently uses a clearly labeled mock assistant. See [the growth-planning contract](docs/GROWTH.md).
 
 The optional [Plaid Sandbox view](docs/PLAID.md) reads actual provider-generated test accounts into balances, transaction history, bill forecasts and scripted chat. Dwolla transfers are not connected. The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **live model access is still unverified**. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
 
@@ -23,13 +23,13 @@ Open the local URL printed by the server (normally `http://localhost:3000`). No 
 
 If a restricted environment reports `Watchpack Error: EMFILE` or repeatedly restarts the server, enable polling with `WATCHPACK_POLLING=true npm --prefix web run dev`. Normal local development can use the command above.
 
-Try **What are my balances?**, **Why is my available balance lower?**, **Show recent transactions**, or **Will my bills be covered?** The mock reads backend fixture data and forecast calculations; its scripted responses are not live AI. Chat cannot approve transfers; use the separate approval card.
+The default **Save and invest** scenario shows $3,500 available checking and $1,850 savings. Alex's sample profile reserves $2,700 for the next 30 days and $300 as a checking buffer. The plan suggests $150 toward the cash-reserve target and $250 toward the entered Roth goal, leaving $100 extra in checking. Open **Why these amounts?**, ask **How much can I save or invest?**, or edit the plan assumptions to see the decisions change. A planning preview does not change balances or place a contribution.
 
-Without opening chat, wait a few seconds for **Looking ahead for you** to propose $35.36 from savings with $1,814.64 remaining. The server checks independently every five seconds and persists alert history locally. Open **Monitoring preferences** to test a higher savings minimum, delayed transfer timing, or pause/resume. Ask **How can I cover the shortfall?** to hear the mock explain the same checks. Proposals do not move money. To try the complete local flow, check the exact approval checkbox, approve the $35.36 simulation, observe pending status, then choose **Simulate success**. Checking becomes $183.96 and the projected shortfall is covered. **Simulate failure** releases the savings reservation. Arrival timing and settlement are simulated. See [the M3 monitoring contract](docs/MONITORING.md) for the 24-hour demo retention, restart behavior and local-server requirement.
+Roth calculations cover a limited set of ordinary 2026 direct contributions using entered income, age, filing status and contributions across all IRAs. Missing information and phase-out cases require review. The 30-day spending budget is entered by the user; the detected-bill forecast still covers 14 days. Savings APY is illustrative. These calculations do not select investments or promise returns.
 
-The scenario selector demonstrates a shortfall, sufficient funds, uncertain payment dates, and stale data. Expand a bill to inspect its history or correct its amount/date. Corrections apply to this page's demo session and the assistant's next answer; reload or reset to return to the original data. The default scenario projects a **$35.36 shortfall**, first appearing **September 18**. See [the forecast contract](docs/FORECAST.md) for calculation rules and limitations.
+Choose **Subscription shortfall**, or open `/?scenario=shortfall`, to exercise the existing bill-protection flow. Five inferred bills total $183.96 against $148.60 checking, producing a $35.36 shortage. The monitor independently proposes funding subject to a protected savings floor. Explicit approval creates a local simulation; **Simulate success** updates checking to $183.96, and **Simulate failure** releases the reservation. These are not provider transfers. See [monitoring](docs/MONITORING.md), [forecasting](docs/FORECAST.md), and [transfer contracts](docs/TRANSFERS.md).
 
-The fixed September 8 snapshot contains checking with **$148.60 available** and **$179.10 current**, savings with **$1,850.00**, and 19 transactions, including three months of recurring merchant history. A **$30.50 pending debit** is already deducted from available checking. History is a sample, not a complete ledger for reconstructing balances. Reloading clears the browser's conversation; the read-only fixture itself is unchanged.
+The other scenarios demonstrate sufficient funds, uncertain payment dates and stale observations. Users can correct bill amounts/dates, exclude a detected bill, change cash-protection settings, inspect activity and reset the simulation. New savings and retirement suggestions are withheld when the balances or spending picture cannot support them.
 
 ```sh
 npm --prefix web test
@@ -49,9 +49,9 @@ npm --prefix web run build
 PENNYAHEAD_ACCESS_MODE=disabled npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 65 backend/API tests and 17 production browser checks plus the opt-in actual Plaid Sandbox browser check pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. Validation covers backend/API tests, production browser checks, typechecking, lint, and the production build. The actual Plaid Sandbox check is opt-in. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Browser checks include desktop (1440px) and mobile (390px) layouts.
 
-To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
+To run the browser checks, install the Chromium test browser once, then build and test the production app. The primary test server uses port 3001; the invitation suite uses port 3003:
 
 ```sh
 cd web

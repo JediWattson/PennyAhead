@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'PennyAhead — Your accounts, a step ahead',
+  title: 'PennyAhead — A little saved. A future built.',
   icons: { icon: '/favicon.svg' },
   description:
-    'Explore synthetic checking and savings accounts with the PennyAhead mock assistant. No real money movement.',
+    'Plan progress toward savings and retirement goals while keeping cash ready for spending. An interactive synthetic demo.',
 };
 export default function RootLayout({
   children,
