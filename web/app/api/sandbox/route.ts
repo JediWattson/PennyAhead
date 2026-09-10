@@ -1,3 +1,4 @@
+import { requireInvite } from '../../../lib/server/invite-access.ts';
 import {
   getSandboxObservations,
   parseSandboxInput,
@@ -6,7 +7,9 @@ import {
 } from '../../../lib/server/sandbox-view.ts';
 import { SandboxError } from '../../../lib/server/plaid-bank.ts';
 export const runtime = 'nodejs';
-export async function GET() {
+export async function GET(request?: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   try {
     return Response.json(
       sandboxForecast(await getSandboxObservations().latest()),
@@ -17,6 +20,8 @@ export async function GET() {
   }
 }
 export async function POST(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   try {
     const input = parseSandboxInput(
       await request.json().catch(() => {

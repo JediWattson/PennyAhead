@@ -1,3 +1,4 @@
+import { requireInvite } from '../../../lib/server/invite-access.ts';
 import { bankProvider, DEMO_OWNER_ID } from '../../../lib/server/fixtures.ts';
 import { MockAssistant } from '../../../lib/server/mock-assistant.ts';
 import { parseDemoOptions } from '../../../lib/server/demo-forecast.ts';
@@ -16,6 +17,8 @@ const recent = new Map<string, number>();
 let callsToday = 0;
 let day = '';
 export async function POST(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   let body: unknown;
   try {
     body = await request.json();

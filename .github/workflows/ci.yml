@@ -22,11 +22,14 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
+      - run: npm run test:access
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: browser-failure-evidence
-          path: web/work/playwright-results
+          path: |
+            web/work/playwright-results
+            web/work/access-results
   container:
     runs-on: ubuntu-latest
     steps:
@@ -39,7 +42,9 @@ jobs:
           docker run -d --name pennyahead-smoke -p 3002:3000 pennyahead:test
           trap 'docker logs pennyahead-smoke; docker rm -f pennyahead-smoke' EXIT
           for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:3002/api/health; then exit 0; fi
+            if curl --fail --silent http://127.0.0.1:3002/api/health; then break; fi
             sleep 2
           done
-          exit 1
+          curl --fail --silent http://127.0.0.1:3002/api/health
+          test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/api/accounts)" = 401
+          test "$(curl --silent -o /dev/null -w '%{http_code}' http://127.0.0.1:3002/)" = 303

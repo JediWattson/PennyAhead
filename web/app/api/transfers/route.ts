@@ -1,3 +1,4 @@
+import { requireInvite } from '../../../lib/server/invite-access.ts';
 import { getMonitorStore } from '../../../lib/server/monitor-store.ts';
 import {
   sessionToken,
@@ -13,6 +14,8 @@ import { getSessionDemo } from '../../../lib/server/session-bank.ts';
 
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   const store = getMonitorStore();
   const id = sessionToken(request);
   const state = store.read(id);

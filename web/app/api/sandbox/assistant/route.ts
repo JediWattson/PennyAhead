@@ -1,3 +1,4 @@
+import { requireInvite } from '../../../../lib/server/invite-access.ts';
 import {
   getSandboxObservations,
   parseSandboxInput,
@@ -11,6 +12,8 @@ import {
 import { MockAssistant } from '../../../../lib/server/mock-assistant.ts';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   try {
     const input = parseSandboxInput(
       await request.json().catch(() => {

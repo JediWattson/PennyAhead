@@ -1,3 +1,4 @@
+import { requireInvite } from '../../../lib/server/invite-access.ts';
 import { getMonitorStore } from '../../../lib/server/monitor-store.ts';
 import { parseMonitorConfig } from '../../../lib/server/funding.ts';
 import { getDemoForecast } from '../../../lib/server/demo-forecast.ts';
@@ -10,12 +11,16 @@ import {
 
 export const runtime = 'nodejs';
 export async function GET(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   const state = getMonitorStore().read(token(request));
   return state
     ? respond(await monitorView(state))
     : respond({ error: 'Demo monitor not found or expired.' }, 404);
 }
 export async function POST(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   try {
     const config = parseMonitorConfig(await request.json());
     await getDemoForecast(DEMO_OWNER_ID, config); // validate corrections before persisting
@@ -31,6 +36,8 @@ export async function POST(request: Request) {
   }
 }
 export async function PATCH(request: Request) {
+  const denied = requireInvite(request);
+  if (denied) return denied;
   try {
     const body = await request.json();
     if (!body || typeof body !== 'object') throw new Error('Invalid update');

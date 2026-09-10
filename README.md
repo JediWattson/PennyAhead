@@ -40,14 +40,16 @@ npm --prefix web run build
 
 The app uses **Next.js App Router**, **React**, **TypeScript**, **shadcn/ui**, and **Tailwind CSS**. The React UI is in `web/components/dashboard.tsx`. TypeScript backend routes are in `web/app/api`, shared provider contracts in `web/lib/contracts.ts`, and the fixture and mock implementations in `web/lib/server`. The development and production commands use standard Next.js on Node.js; the [AWS deployment](docs/DEPLOYMENT.md) uses a persistent host behind CloudFront HTTPS.
 
-To run the production build locally:
+Production requires private judge invitations and stays locked when they are not configured. See [private judge access](docs/DEPLOYMENT.md#private-judge-access) for generating links, seven-day browser sessions, and revocation. The gate protects pages and data APIs; it does not enable live AI or money movement.
+
+To run the production build with open access for trusted local testing:
 
 ```sh
 npm --prefix web run build
-npm --prefix web start
+PENNYAHEAD_ACCESS_MODE=disabled npm --prefix web start
 ```
 
-Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 60 backend/API tests and 14 production browser checks plus the opt-in actual Plaid Sandbox browser check pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
+Lint covers application code; the generated UI component library and its mobile helper retain the starter source and are excluded from lint. TypeScript checking includes those components. All 65 backend/API tests and 17 production browser checks plus the opt-in actual Plaid Sandbox browser check pass, along with typechecking, lint, and the production build. Coverage includes data isolation, recurrence evidence, shortfalls, uncertain dates/amounts, stale observations, pending reconciliation, user corrections, failed updates, API validation, funding constraints, independent monitoring, persistence, concurrency, and alert deduplication. Desktop (1440px) and mobile (390px) layouts were inspected; neither has horizontal overflow.
 
 To run the browser checks, install the Chromium test browser once, then build and test the production app. The test server uses port 3001, which must be free:
 

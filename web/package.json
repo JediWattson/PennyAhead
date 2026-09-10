@@ -13,7 +13,8 @@
     "format": "oxfmt",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
-    "test:e2e": "npm run build && playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "test:access": "playwright test --config playwright.access.config.ts"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",

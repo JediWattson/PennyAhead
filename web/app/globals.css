@@ -1165,3 +1165,101 @@ summary:focus-visible {
   background: #f0f5fb;
   border-color: #d8e4ee;
 }
+
+.invite-shell {
+  min-height: 100dvh;
+  padding: 44px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at top, #e6eedf, #f6f8f4 65%);
+}
+.invite-shell > .brand {
+  margin-bottom: 32px;
+}
+.invite-card {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border: 1px solid #d8e2d6;
+  border-radius: 24px;
+  padding: 36px;
+  box-shadow: 0 18px 60px #294d2510;
+}
+.invite-icon {
+  display: inline-flex;
+  background: #edf4e8;
+  color: #376246;
+  padding: 14px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+.invite-card h1 {
+  font-size: 2.1rem;
+  line-height: 1.15;
+  margin: 8px 0 16px;
+  letter-spacing: -1px;
+}
+.invite-intro,
+.invite-help {
+  color: #5b7062;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+.invite-card form {
+  margin-top: 26px;
+}
+.invite-card label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.invite-card input {
+  width: 100%;
+  min-height: 48px;
+  font-size: 16px;
+}
+.invite-card button {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 14px;
+}
+.invite-help {
+  font-size: 0.8rem;
+  margin-top: 22px;
+}
+.invite-error {
+  color: #983e2a;
+  font-size: 0.875rem;
+  margin-top: 10px;
+  line-height: 1.5;
+}
+.invite-footnote {
+  color: #677a6c;
+  text-align: center;
+  font-size: 0.75rem;
+  max-width: 390px;
+  margin-top: 24px;
+}
+.access-control {
+  padding: 6px 18px;
+  text-align: right;
+  background: #edf4e8;
+}
+.access-control > span {
+  font-size: 0.8rem;
+  margin-left: 8px;
+}
+@media (max-width: 440px) {
+  .invite-shell {
+    padding: 28px 16px;
+  }
+  .invite-card {
+    padding: 26px 22px;
+  }
+  .invite-card h1 {
+    font-size: 1.8rem;
+  }
+}

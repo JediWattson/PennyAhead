@@ -23,14 +23,35 @@ After approving resource creation and pushing the reviewed commit:
 
 ```sh
 python3 deploy/aws-deploy.py --commit <40-character-public-commit> \
+  --invite-file web/work/private/judge-invites.json \
   --vpc vpc-09d97811e2696a182 --subnet subnet-020cbee6ceb70c9e0
 ```
 
-The script generates the origin token in a private temporary parameter file and removes it after the request. It creates a stack rather than updating/replacing an existing stack. Retrieve `DemoUrl` and `InstanceId` from the `pennyahead-demo` stack outputs. Stack completion does not prove application health: the Docker build runs in EC2 user data. Confirm `/api/health`, the full approval path, isolated sessions and mobile layout over the HTTPS URL. Do not mark deployment complete before those checks pass.
+First generate the private judge invitations as described below. The script generates the access signing secret and origin token in a private temporary parameter file and removes it after the request. It creates a stack rather than updating/replacing an existing stack. Retrieve `DemoUrl` and `InstanceId` from the `pennyahead-demo` stack outputs. Stack completion does not prove application health: the Docker build runs in EC2 user data. Confirm `/api/health`, the full approval path, isolated sessions and mobile layout over the HTTPS URL. Do not mark deployment complete before those checks pass.
 
 If boot fails, inspect `/var/log/cloud-init-output.log` and `docker logs pennyahead` through SSM. Never print `/etc/pennyahead.env`, EC2 user data, or container environment variables. A restart is `docker restart pennyahead`. For an application update, build the new exact commit, stop/remove only the `pennyahead` container, and run its new image with the same env file and `/var/lib/pennyahead:/data` mount. Take a SQLite backup before changing schemas.
 
 Public live-model mode has an application guard of three concurrent requests, one request per session per three seconds, and 200 attempts per UTC day **per process**. This counter resets on server restart and is not a billing cap or production abuse protection. Add a durable shared quota before exposing paid model access at scale.
+
+## Private judge access
+
+The deployed app requires an invitation for all pages and data APIs. Visitors see `/unlock`; unauthorized API requests return 401 with `INVITE_REQUIRED`. Only the unlock page, access exchange, static assets and `/api/health` are public. API handlers and page rendering also verify access independently of the Next.js Proxy. Production with missing or malformed invitation settings stays locked; local development defaults to open. `PENNYAHEAD_ACCESS_MODE=disabled` is an explicit override for trusted local testing, and is never set by the AWS deployment.
+
+Generate five independently revocable invitations before creating the stack:
+
+```sh
+python3 deploy/create-invites.py
+```
+
+This creates `web/work/private/judge-invites.json` with mode 0600 in a Git-ignored directory and refuses to overwrite it. Each entry includes a label, a 256-bit random token, its SHA-256 hash, and an HTTPS invitation URL. Change `--count`, `--base-url`, or `--output` when needed. Share one URL or token privately with each judge; keep the bundle out of source control, public submission text and screenshots. The deployment helper requires `--invite-file` and passes only hashes plus a separately generated signing secret to the host.
+
+A link uses `/unlock#token=…`: the fragment is not sent in HTTP requests and is removed from browser history before the token is POSTed. Judges can also paste the token. Successful unlock sets a signed, host-only, HttpOnly, SameSite=Strict cookie, Secure in production, valid for seven days. Each browser keeps its own existing demo monitor and transfer capability. Invitations are reusable across devices until revoked; they are bearer access and anyone receiving a forwarded link can use it. There is no email or identity verification.
+
+“Lock this browser” clears its access cookie. To revoke an invitation and all its existing sessions, remove its hash from `PENNYAHEAD_INVITE_HASHES` in the host's private env file and recreate the container with that env file. Preserve the remaining hashes and signing secret. To revoke every existing browser session, rotate `PENNYAHEAD_ACCESS_SECRET`; retained invitation links can then unlock again. Keep the private bundle consistent with changes so a future deployment does not restore revoked hashes. Missing/all-removed hashes fail closed. No dashboard for issuing or revoking invitations is included.
+
+Unlock accepts same-origin JSON only and limits bodies to 1 KiB. Invalid attempts are throttled after 30 per minute per process; valid invitations still work. This is not a distributed traffic limiter or an AI spending cap. Existing assistant limits remain separate. The access gate does not enable live AI, real bank accounts or real transfers.
+
+Verify with `npm run test:access` in `web` after a build. These production browser checks cover the locked APIs, invalid and valid invitations, mobile unlock, full demo flow, isolated browsers, cookie expiry and locking. Existing browser regressions explicitly disable the gate in their local test server.
 
 ## Cloudflare subdomain: pennyahead.famtrees.net
 
@@ -42,6 +63,7 @@ Public live-model mode has an application guard of three concurrent requests, on
 
 ```sh
 python3 deploy/aws-deploy.py --commit <40-character-public-commit> \
+  --invite-file web/work/private/judge-invites.json \
   --vpc vpc-09d97811e2696a182 --subnet subnet-020cbee6ceb70c9e0 \
   --domain pennyahead.famtrees.net \
   --certificate-arn <issued-us-east-1-certificate-arn>

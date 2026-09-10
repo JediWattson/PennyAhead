@@ -23,6 +23,16 @@ Parameters:
     NoEcho: true
     MinLength: 32
     AllowedPattern: '[a-f0-9]{64}'
+  InviteHashes:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '[a-f0-9]{64}(,[a-f0-9]{64}){0,49}'
+    Description: SHA-256 hashes of private judge invitations, never the raw tokens
+  AccessSecret:
+    Type: String
+    NoEcho: true
+    AllowedPattern: '[a-f0-9]{64}'
+    Description: Random key for signing seven-day judge browser sessions
   ImageId:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
@@ -105,6 +115,9 @@ Resources:
           PENNYAHEAD_ASSISTANT=mock
           PENNYAHEAD_TRANSFER_PROVIDER=local_simulation
           PENNYAHEAD_ORIGIN_TOKEN=${OriginToken}
+          PENNYAHEAD_ACCESS_MODE=required
+          PENNYAHEAD_INVITE_HASHES=${InviteHashes}
+          PENNYAHEAD_ACCESS_SECRET=${AccessSecret}
           ENV
           docker run -d --name pennyahead --restart unless-stopped --cap-drop ALL --security-opt no-new-privileges:true --env-file /etc/pennyahead.env -p 80:3000 -v /var/lib/pennyahead:/data pennyahead:${Commit}
   Distribution:
