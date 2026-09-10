@@ -10,6 +10,14 @@ Parameters:
     Type: String
     AllowedPattern: '[a-f0-9]{40}'
     Description: Exact reviewed public GitHub commit to build
+  DomainName:
+    Type: String
+    Default: ''
+    Description: Optional full custom hostname, such as pennyahead.famtrees.net
+  CertificateArn:
+    Type: String
+    Default: ''
+    Description: Issued ACM certificate in us-east-1 covering DomainName
   OriginToken:
     Type: String
     NoEcho: true
@@ -22,6 +30,15 @@ Parameters:
     Type: String
     Default: pl-3b927c52
     Description: AWS-managed CloudFront origin-facing prefix list in us-east-1
+Rules:
+  DomainAndCertificateTogether:
+    Assertions:
+      - Assert: !Or
+          - !And [!Equals [!Ref DomainName, ''], !Equals [!Ref CertificateArn, '']]
+          - !And [!Not [!Equals [!Ref DomainName, '']], !Not [!Equals [!Ref CertificateArn, '']]]
+        AssertDescription: Provide both DomainName and CertificateArn, or leave both empty
+Conditions:
+  HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
 Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -99,6 +116,7 @@ Resources:
         PriceClass: PriceClass_100
         HttpVersion: http2
         IPV6Enabled: true
+        Aliases: !If [HasCustomDomain, [!Ref DomainName], !Ref 'AWS::NoValue']
         Origins:
           - Id: demo
             DomainName: !GetAtt Host.PublicDnsName
@@ -116,9 +134,18 @@ Resources:
           Compress: true
           CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
           OriginRequestPolicyId: 216adef6-5c7f-47e4-b989-5492eafa07d3
-        ViewerCertificate: {CloudFrontDefaultCertificate: true}
+        ViewerCertificate: !If
+          - HasCustomDomain
+          - AcmCertificateArn: !Ref CertificateArn
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
+          - CloudFrontDefaultCertificate: true
 Outputs:
   DemoUrl:
-    Value: !Sub https://${Distribution.DomainName}
+    Value: !If [HasCustomDomain, !Sub 'https://${DomainName}', !Sub 'https://${Distribution.DomainName}']
+  CloudFrontDomainName:
+    Value: !GetAtt Distribution.DomainName
+  DistributionId:
+    Value: !Ref Distribution
   InstanceId:
     Value: !Ref Host
