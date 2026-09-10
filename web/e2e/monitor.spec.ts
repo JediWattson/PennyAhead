@@ -1,4 +1,6 @@
 import { expect, test } from '@playwright/test';
+import { DatabaseSync } from 'node:sqlite';
+import { resolve } from 'node:path';
 import type { MonitorState } from '../lib/contracts';
 
 test('background checks create one proposal without chat, persist acknowledgement, and agree with the mock', async ({
@@ -99,8 +101,28 @@ test('server keeps monitoring with no browser or API requests', async ({
   expect(response.status()).toBe(201);
   const session = (await response.json()) as MonitorState;
   expect(session.plan).toBeNull();
-  // Deliberately no polling or page: only the server timer can produce this result.
-  await new Promise((resolve) => setTimeout(resolve, 11000));
+  // Observe persisted state without HTTP requests. Timer scheduling can skip a
+  // due boundary, so wait for two actual checks instead of assuming exactly 11s.
+  const database = new DatabaseSync(resolve('work/e2e-monitor.sqlite'), {
+    readOnly: true,
+  });
+  try {
+    await expect
+      .poll(
+        () => {
+          const row = database
+            .prepare(
+              "SELECT json_extract(state, '$.checkCount') AS count FROM monitors WHERE id = ?",
+            )
+            .get(session.id);
+          return Number(row?.count ?? 0);
+        },
+        { timeout: 25000, intervals: [250, 500, 1000] },
+      )
+      .toBeGreaterThanOrEqual(2);
+  } finally {
+    database.close();
+  }
   const read = await request.get('/api/monitor', {
     headers: { Authorization: `Bearer ${session.id}` },
   });
