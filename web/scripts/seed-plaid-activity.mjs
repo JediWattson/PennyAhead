@@ -11,6 +11,7 @@ import { buildForecast } from '../lib/server/forecast.ts';
 import { activityFixture } from './plaid-activity-fixture.ts';
 import { buildGrowthPlan } from '../lib/server/growth-plan.ts';
 import { initialGrowthInputs } from '../lib/growth-contracts.ts';
+import { renameDemoMerchant } from './demo-merchant-names.ts';
 import { weeklyIncomeTransactions } from './weekly-income-fixture.ts';
 
 // Run from web. Default: prepare only. --activate creates, verifies, then selects a test Item.
@@ -22,14 +23,18 @@ if (
 const privateDir = resolve('work/private');
 const surplus = process.argv.includes('--surplus');
 const weeklyIncome = process.argv.includes('--weekly-income');
-if (surplus && weeklyIncome) throw new Error('Choose one seed mode');
+const renameMerchants = process.argv.includes('--rename-merchants');
+if ([surplus, weeklyIncome, renameMerchants].filter(Boolean).length > 1)
+  throw new Error('Choose one seed mode');
 const journalPath = resolve(
   privateDir,
-  weeklyIncome
-    ? 'plaid-weekly-income-seed.json'
-    : surplus
-      ? 'plaid-surplus-seed.json'
-      : 'plaid-activity-seed.json',
+  renameMerchants
+    ? 'plaid-merchant-names-seed.json'
+    : weeklyIncome
+      ? 'plaid-weekly-income-seed.json'
+      : surplus
+        ? 'plaid-surplus-seed.json'
+        : 'plaid-activity-seed.json',
 );
 const envPath = resolve('.env.local');
 await mkdir(privateDir, { recursive: true, mode: 0o700 });
@@ -96,7 +101,46 @@ async function call(path, body) {
   return result;
 }
 if (!journal) {
-  if (weeklyIncome) {
+  if (renameMerchants) {
+    const original = JSON.parse(
+      await readFile(
+        resolve(privateDir, 'plaid-weekly-income-seed.json'),
+        'utf8',
+      ),
+    );
+    if (
+      original.phase !== 'activated' ||
+      original.accessToken !== process.env.PLAID_ACCESS_TOKEN
+    )
+      throw new Error(
+        'Merchant renaming requires the active weekly income seed',
+      );
+    const config = structuredClone(original.config);
+    let renamedTransactions = 0;
+    for (const account of config.override_accounts) {
+      for (const transaction of account.transactions) {
+        const description = renameDemoMerchant(transaction.description);
+        if (description !== transaction.description) renamedTransactions++;
+        transaction.description = description;
+      }
+    }
+    if (!renamedTransactions) throw new Error('No demo merchants to rename');
+    journal = {
+      phase: 'prepared',
+      previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
+      config,
+      anchor: original.anchor,
+      addedTransactions: 0,
+      renamedTransactions,
+      renameMerchants: true,
+      nextBills: original.nextBills.map((bill) => ({
+        ...bill,
+        name: renameDemoMerchant(bill.name),
+      })),
+      sampleRothProfile: original.sampleRothProfile,
+      weeklyIncome: original.weeklyIncome,
+    };
+  } else if (weeklyIncome) {
     const original = JSON.parse(
       await readFile(resolve(privateDir, 'plaid-surplus-seed.json'), 'utf8'),
     );
@@ -256,6 +300,53 @@ for (const expected of journal.config.override_accounts) {
     throw new Error(
       'Custom account balance did not match; existing configuration is preserved',
     );
+}
+if (journal.renameMerchants) {
+  for (const expected of journal.config.override_accounts) {
+    const actual = snapshot.accounts.find(
+      (account) => account.kind === expected.subtype,
+    );
+    const key = (description, date, cents) =>
+      JSON.stringify([description, date.slice(0, 10), cents]);
+    const wanted = expected.transactions
+      .map((transaction) =>
+        key(
+          transaction.description,
+          transaction.date_posted,
+          Math.round(-transaction.amount * 100),
+        ),
+      )
+      .sort();
+    const received = snapshot.transactions
+      .filter((transaction) => transaction.accountId === actual.id)
+      .map((transaction) =>
+        key(transaction.description, transaction.date, transaction.amountCents),
+      )
+      .sort();
+    if (JSON.stringify(wanted) !== JSON.stringify(received))
+      throw new Error(
+        'Renamed provider history changed amounts, dates or descriptions; existing configuration is preserved',
+      );
+  }
+  if (
+    snapshot.transactions.some((transaction) =>
+      /pennyahead/i.test(transaction.merchant),
+    )
+  )
+    throw new Error(
+      'Provider merchant names still contain PennyAhead; existing configuration is preserved',
+    );
+  for (const bill of journal.nextBills) {
+    if (
+      !forecast.bills.some(
+        (actual) =>
+          actual.merchant === bill.name && actual.nextDate === bill.date,
+      )
+    )
+      throw new Error(
+        'Renamed bill was not detected correctly; existing configuration is preserved',
+      );
+  }
 }
 const growthPlan = journal.sampleRothProfile
   ? buildGrowthPlan(

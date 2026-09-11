@@ -22,7 +22,7 @@ This is a read-only public test-data demo, not customer authentication. The owne
 
 ## Seeded demo activity
 
-The local preview uses a custom Plaid Sandbox Item with the original two supported accounts, balances and 25 transactions, plus 18 operator-authored test transactions. These are returned by Plaid's APIs; the application does not inject them into a provider response. The September 10 seed adds three months of history for mobile, internet, gym and electric bills due September 12–21, recent checking activity, and a matching savings deposit and interest credit. Plaid may normalize merchant names (for example, the mobile-plan description is returned as “Pennyahead”). The available balances are intentionally fixed test values and do not change when seeding history.
+The local preview uses a custom Plaid Sandbox Item with the original two supported accounts, balances and 25 transactions, plus 18 operator-authored test transactions. These are returned by Plaid's APIs; the application does not inject them into a provider response. The September 10 seed adds three months of history for mobile, internet, gym and electric bills due September 12–21, recent checking activity, and a matching savings deposit and interest credit. The authored bill merchants are Cedar Wireless, Harbor Home Internet, Summit Athletics, and Northstar Electric. Shopping and income examples use Maple Street Market, Juniper Roasters, Oakridge Design Paycheck, and Riverton Labs Payroll. Savings entries are labeled Transfer to Savings and Savings Interest Credit; none are charges from PennyAhead. The available balances are intentionally fixed test values and do not change when seeding history.
 
 The setup script prepares a private journal by default; `--activate` creates a custom Item, verifies its returned history and balances, then updates the ignored local environment file. It preserves the original Item's access token for recovery. Re-running resumes the recorded Item instead of duplicating it. Uncertain creation or exchange outcomes require reconciliation before retrying. Custom-user creation omits the optional schema version, because an explicit version was rejected by this Sandbox, and requests 180 days so the oldest monthly payment is included. The initial read may need to wait for the additional history.
 
@@ -71,6 +71,10 @@ References: [Plaid account and balance semantics](https://plaid.com/docs/api/acc
 
 The **Save & invest** tab is available for Sandbox accounts. It reads the same stored observation as balances, forecast and chat, and recalculates after a successful refresh or bill correction. Spending starts with an estimate from posted checking history, plus editable suggested buffers and savings targets. Income and IRA details are requested separately for Roth planning. The planner reserves spending and a checking buffer, then previews savings and Roth contributions. Missing or uncertain data pauses suggestions. This flow does not read investment holdings, open an IRA or execute contributions.
 
+
+## Rename authored demo merchants
+
+After the weekly-income setup, run `node --experimental-strip-types --env-file=.env.local scripts/seed-plaid-activity.mjs --rename-merchants --activate` from `web`. This clones the active 51-transaction test Item with the distinct descriptions above. It changes no dates, amounts, balances, or transaction counts. Before activation, the script verifies exact returned descriptions, dates and amounts, preserved balances, the four renamed recurring bills, weekly income, and the Roth preview. Its separate ignored journal makes retries resume the same Item and retains the previous token for recovery. Restart the local preview and refresh Sandbox after activation. These names are authored sample data returned by Plaid, not display substitutions in the adapter.
 
 ## Weekly income demo
 

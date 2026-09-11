@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type SubmitEvent } from 'react';
 import { ArrowRight, LockKeyhole, Sprout } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { ThemeSelector } from '../../components/theme-selector';
 
 export default function UnlockPage() {
   const [token, setToken] = useState('');
@@ -54,6 +55,9 @@ export default function UnlockPage() {
 
   return (
     <main className="invite-shell">
+      <div className="invite-theme">
+        <ThemeSelector />
+      </div>
       <div className="brand">
         <span className="brand-mark">
           <Sprout size={24} />

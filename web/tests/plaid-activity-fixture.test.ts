@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { DEMO_MERCHANT_RENAMES } from '../scripts/demo-merchant-names.ts';
 import { test } from 'node:test';
 import { activityFixture } from '../scripts/plaid-activity-fixture.ts';
 import { FixtureBankProvider, DEMO_OWNER_ID } from '../lib/server/fixtures.ts';
@@ -38,7 +39,9 @@ void test('custom Plaid activity preserves existing records and balances, and su
       transactions: fixture.config.override_accounts.flatMap((account, index) =>
         account.transactions
           .filter((transaction) =>
-            transaction.description.startsWith('PennyAhead'),
+            Object.values(DEMO_MERCHANT_RENAMES).includes(
+              transaction.description,
+            ),
           )
           .map((transaction, j) => ({
             id: `test-${index}-${j}`,

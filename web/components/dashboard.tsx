@@ -17,7 +17,6 @@ import {
   Landmark,
   Sparkles,
   ShieldCheck,
-  MessageCircle,
   LoaderCircle,
   RefreshCw,
 } from 'lucide-react';
@@ -34,6 +33,7 @@ import type {
 } from '../lib/contracts';
 import { formatMoney } from '../lib/money';
 import { selectChatHistory } from '../lib/chat-history';
+import { ThemeSelector } from './theme-selector';
 import { registerAccountReader } from '../lib/webmcp';
 import { GrowthPanel } from './growth-panel';
 import {
@@ -343,6 +343,7 @@ export function Dashboard({
             Synthetic demo
           </span>
         )}
+        <ThemeSelector />
       </header>
       <main
         id="main"
@@ -769,13 +770,6 @@ export function Dashboard({
                   {error}
                 </p>
               )}
-              <p className="assistant-footnote">
-                <MessageCircle size={13} />
-                Balances, bills & forecasts ·{' '}
-                {assistantProvider === 'mock'
-                  ? 'Mock assistant'
-                  : 'AI assistant'}
-              </p>
               <div className="chat-context-controls">
                 <small>
                   {assistantProvider === 'mock'

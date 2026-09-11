@@ -50,3 +50,9 @@ Only solid-line paths are implemented. The model adapters and Strands runtime ar
 For AWS, the prepared template routes browser HTTPS through CloudFront to a single EC2 container. SQLite is mounted on persistent encrypted host storage. There is no production account authentication, provider outbox, live webhook processing or AgentCore deployment. See [deployment](DEPLOYMENT.md), [forecast](FORECAST.md), [monitoring](MONITORING.md), [agent](AGENT.md) and [transfers](TRANSFERS.md) for the exact boundaries.
 
 Savings and Roth suggestions are calculated from the session context plus entered assumptions. No growth-contribution ledger or provider execution exists yet. Growth planning is synthetic-only; the optional Plaid page remains separate. See [growth planning](GROWTH.md).
+
+## Appearance
+
+The header and invitation page offer System, Light, and Dark themes. System is the default and follows operating-system changes. An explicit choice is stored under `pennyahead-theme` in browser local storage and synchronized across open tabs; if storage is unavailable, switching still works for the current page. Theme changes preserve the active tab, chat draft, and financial plan.
+
+A static script in the document head applies the saved preference before the page paints. The root theme provider maintains system and storage listeners after hydration. Shared CSS variables cover component colors, custom panels, chart lines, warnings, forms, loading states, and chat Markdown. Browser checks exercise preference persistence, system changes, initial rendering before hydration, storage failure, and both palettes at desktop and mobile sizes.

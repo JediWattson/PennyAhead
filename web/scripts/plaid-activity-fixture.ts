@@ -26,10 +26,10 @@ export function activityFixture(snapshot: BankSnapshot, anchor: string) {
   );
   if (!checking || !savings) throw new Error('Checking and savings required');
   const bills = [
-    { name: 'PennyAhead Mobile', offset: 2, amounts: [45, 45, 45] },
-    { name: 'PennyAhead Home Internet', offset: 5, amounts: [65, 65, 65] },
-    { name: 'PennyAhead Gym', offset: 8, amounts: [29.99, 29.99, 29.99] },
-    { name: 'PennyAhead Electric', offset: 11, amounts: [18.5, 21, 19.99] },
+    { name: 'Cedar Wireless', offset: 2, amounts: [45, 45, 45] },
+    { name: 'Harbor Home Internet', offset: 5, amounts: [65, 65, 65] },
+    { name: 'Summit Athletics', offset: 8, amounts: [29.99, 29.99, 29.99] },
+    { name: 'Northstar Electric', offset: 11, amounts: [18.5, 21, 19.99] },
   ];
   // Keep dates inside the 14-day view and stable across three historical months.
   const candidateDates = Array.from({ length: 13 }, (_, index) => {
@@ -59,17 +59,17 @@ export function activityFixture(snapshot: BankSnapshot, anchor: string) {
             return transaction(day(due), bill.amounts[index], bill.name);
           }),
         ),
-        transaction(recent(1), 42.75, 'PennyAhead Neighborhood Market'),
-        transaction(recent(2), 6.5, 'PennyAhead Corner Coffee'),
-        transaction(recent(3), -250, 'PennyAhead Paycheck'),
-        transaction(recent(1), 25, 'PennyAhead Savings Deposit'),
+        transaction(recent(1), 42.75, 'Maple Street Market'),
+        transaction(recent(2), 6.5, 'Juniper Roasters'),
+        transaction(recent(3), -250, 'Oakridge Design Paycheck'),
+        transaction(recent(1), 25, 'Transfer to Savings'),
       ],
     ],
     [
       savings.id,
       [
-        transaction(recent(1), -25, 'PennyAhead Savings Deposit'),
-        transaction(recent(2), -0.67, 'PennyAhead Savings Interest'),
+        transaction(recent(1), -25, 'Transfer to Savings'),
+        transaction(recent(2), -0.67, 'Savings Interest Credit'),
       ],
     ],
   ]);

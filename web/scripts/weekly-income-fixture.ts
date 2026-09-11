@@ -16,7 +16,7 @@ export function weeklyIncomeTransactions(anchor: string) {
       date_transacted: day,
       date_posted: day,
       amount: -500,
-      description: 'PennyAhead Weekly Payroll',
+      description: 'Riverton Labs Payroll',
       currency: 'USD',
     };
   });
