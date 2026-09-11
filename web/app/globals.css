@@ -8,6 +8,29 @@
   padding-top: 80px;
   max-width: 760px;
 }
+.page-loading {
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 30px;
+  padding: 24px;
+}
+.brand.loading-brand {
+  font-size: clamp(1.8rem, 5vw, 2.5rem);
+}
+.loading-brand .brand-dot {
+  margin-left: 0;
+}
+.loading-brand .brand-mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+}
+.loading-spinner {
+  color: #386e57;
+}
 .sandbox-loading p {
   margin-block: 20px;
 }
@@ -482,6 +505,12 @@ h3 {
 .sandbox-workspace {
   --chat-top-space: 180px;
 }
+.workspace.sandbox-workspace {
+  padding-top: 15px;
+}
+.sandbox-eyebrow {
+  margin-bottom: 18px;
+}
 .assistant-panel {
   min-width: 0;
   display: flex;
@@ -689,6 +718,9 @@ footer {
   }
   .workspace {
     padding: 24px 18px;
+  }
+  .workspace.sandbox-workspace {
+    padding-top: 12px;
   }
   .masthead {
     padding: 17px 18px;

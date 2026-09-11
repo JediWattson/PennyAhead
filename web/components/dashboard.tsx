@@ -331,36 +331,34 @@ export function Dashboard({
           </span>
           PennyAhead<span className="brand-dot">.</span>
         </a>
-        <span className="demo-chip">
-          <span />
-          {sandbox ? 'Plaid Sandbox' : 'Synthetic demo'}
-        </span>
+        {!sandbox && (
+          <span className="demo-chip">
+            <span />
+            Synthetic demo
+          </span>
+        )}
       </header>
       <main
         id="main"
         className={`workspace${sandbox ? ' sandbox-workspace' : ''}`}
       >
-        <div className="page-heading">
-          <div>
-            <p className="eyebrow">
-              {sandbox ? 'YOUR MONEY, IN VIEW' : 'YOUR NEXT STEP, IN REACH'}
-            </p>
-            {sandbox ? (
-              <h1 className="sr-only">Your finances</h1>
-            ) : (
-              <>
-                <h1>
-                  A little saved.
-                  <br /> A future built.
-                </h1>
-                <p className="intro">
-                  Turn money left after spending into progress toward your
-                  savings and retirement goals.
-                </p>
-              </>
-            )}
+        {sandbox ? (
+          <p className="eyebrow sandbox-eyebrow">YOUR MONEY, IN VIEW</p>
+        ) : (
+          <div className="page-heading">
+            <div>
+              <p className="eyebrow">YOUR NEXT STEP, IN REACH</p>
+              <h1>
+                A little saved.
+                <br /> A future built.
+              </h1>
+              <p className="intro">
+                Turn money left after spending into progress toward your savings
+                and retirement goals.
+              </p>
+            </div>
           </div>
-        </div>
+        )}
         {!sandbox && (
           <div className="scenario-controls">
             <label htmlFor="scenario">Demo scenario</label>

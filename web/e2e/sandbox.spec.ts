@@ -636,27 +636,55 @@ test('initial Sandbox failure exposes retry without substituting fixture balance
 }) => {
   const view = await sandboxFixture();
   let fail = true;
-  await page.route('**/api/sandbox', (route) =>
-    fail
+  let release!: () => void;
+  let pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route('**/api/sandbox', async (route) => {
+    await pending;
+    return fail
       ? route.fulfill({
           status: 503,
           json: { error: 'Plaid is still preparing transaction history.' },
         })
-      : route.fulfill({ json: view }),
-  );
+      : route.fulfill({ json: view });
+  });
   await page.route('**/api/sandbox/growth', (route) =>
     route.fulfill({
       json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
     }),
   );
   await page.goto('/sandbox');
+  const loading = page.getByTestId('page-loading');
+  await expect(loading).toBeVisible();
+  await expect(loading.getByLabel('PennyAhead', { exact: true })).toBeVisible();
+  await expect(
+    loading.getByRole('status', { name: 'Loading PennyAhead' }),
+  ).toBeVisible();
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({ path: `work/loading-screen-${width}.png` });
+  }
+  release();
   await expect(page.getByRole('main').getByRole('alert')).toContainText(
     'still preparing',
   );
+  await expect(loading).toHaveCount(0);
   await expect(page.locator('.account-card')).toHaveCount(0);
   fail = false;
+  pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.getByRole('button', { name: 'Retry Sandbox connection' }).click();
+  await expect(loading).toBeVisible();
+  release();
   await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await expect(loading).toHaveCount(0);
   await expect(
     page.getByRole('heading', { name: 'Plaid Checking', exact: true }),
   ).toBeVisible();

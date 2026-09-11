@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { DemoForecast } from '../lib/contracts';
 import { Dashboard } from './dashboard';
 import { Button } from './ui/button';
+import { PageLoading } from './page-loading';
 
 export function SandboxDashboard() {
   const [demo, setDemo] = useState<DemoForecast | null>(null);
@@ -39,6 +40,7 @@ export function SandboxDashboard() {
     return (
       <Dashboard initialDemo={demo} assistantProvider="mock" sandboxAvailable />
     );
+  if (!error) return <PageLoading />;
   return (
     <main className="workspace sandbox-loading">
       <p className="eyebrow">PENNYAHEAD · PLAID SANDBOX</p>
