@@ -2,9 +2,61 @@ import assert from 'node:assert/strict';
 import { DEMO_MERCHANT_RENAMES } from '../scripts/demo-merchant-names.ts';
 import { test } from 'node:test';
 import { activityFixture } from '../scripts/plaid-activity-fixture.ts';
+import { cleanSavingsHistory } from '../scripts/savings-activity-fixture.ts';
 import { FixtureBankProvider, DEMO_OWNER_ID } from '../lib/server/fixtures.ts';
 import { buildForecast } from '../lib/server/forecast.ts';
 import type { BankSnapshot } from '../lib/contracts.ts';
+
+void test('savings cleanup preserves checking and balances, pairs deposits, and posts one interest credit per completed month', async () => {
+  const snapshot = await new FixtureBankProvider().getSnapshot(DEMO_OWNER_ID);
+  snapshot.source = 'plaid_sandbox';
+  snapshot.transactions = snapshot.transactions.filter(
+    (t) => t.status === 'posted',
+  );
+  const original = activityFixture(snapshot, '2026-09-10').config;
+  const before = structuredClone(original);
+  for (const [anchor, months] of [
+    ['2026-09-10', ['2026-08-31', '2026-07-31', '2026-06-30']],
+    ['2024-03-01', ['2024-02-29', '2024-01-31', '2023-12-31']],
+  ] as const) {
+    const cleaned = cleanSavingsHistory(original, anchor);
+    const checking = cleaned.override_accounts.find(
+      (a) => a.subtype === 'checking',
+    )!;
+    const savings = cleaned.override_accounts.find(
+      (a) => a.subtype === 'savings',
+    )!;
+    assert.deepEqual(
+      checking,
+      original.override_accounts.find((a) => a.subtype === 'checking'),
+    );
+    const { transactions: _old, ...priorAccount } =
+      original.override_accounts.find((a) => a.subtype === 'savings')!;
+    const { transactions, ...newAccount } = savings;
+    assert.deepEqual(newAccount, priorAccount);
+    const deposits = transactions.filter(
+      (t) => t.description === 'Transfer from Checking',
+    );
+    assert.deepEqual(
+      deposits.map((t) => [t.date_posted, t.amount]),
+      checking.transactions
+        .filter((t) => t.description === 'Transfer to Savings')
+        .map((t) => [t.date_posted, -t.amount]),
+    );
+    const interest = transactions.filter(
+      (t) => t.description === 'Monthly Savings Interest',
+    );
+    assert.deepEqual(
+      interest.map((t) => t.date_posted),
+      months,
+    );
+    assert.ok(
+      interest.every((t) => t.amount === -0.67 && t.date_posted < anchor),
+    );
+    assert.equal(transactions.length, deposits.length + 3);
+    assert.deepEqual(original, before);
+  }
+});
 
 void test('custom Plaid activity preserves existing records and balances, and supplies posted history for four upcoming bills on both sides of month end', async () => {
   const snapshot = await new FixtureBankProvider().getSnapshot(DEMO_OWNER_ID);

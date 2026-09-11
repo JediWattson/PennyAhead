@@ -13,6 +13,7 @@ import { buildGrowthPlan } from '../lib/server/growth-plan.ts';
 import { initialGrowthInputs } from '../lib/growth-contracts.ts';
 import { renameDemoMerchant } from './demo-merchant-names.ts';
 import { weeklyIncomeTransactions } from './weekly-income-fixture.ts';
+import { cleanSavingsHistory } from './savings-activity-fixture.ts';
 
 // Run from web. Default: prepare only. --activate creates, verifies, then selects a test Item.
 if (
@@ -24,17 +25,23 @@ const privateDir = resolve('work/private');
 const surplus = process.argv.includes('--surplus');
 const weeklyIncome = process.argv.includes('--weekly-income');
 const renameMerchants = process.argv.includes('--rename-merchants');
-if ([surplus, weeklyIncome, renameMerchants].filter(Boolean).length > 1)
+const cleanSavings = process.argv.includes('--clean-savings');
+if (
+  [surplus, weeklyIncome, renameMerchants, cleanSavings].filter(Boolean)
+    .length > 1
+)
   throw new Error('Choose one seed mode');
 const journalPath = resolve(
   privateDir,
-  renameMerchants
-    ? 'plaid-merchant-names-seed.json'
-    : weeklyIncome
-      ? 'plaid-weekly-income-seed.json'
-      : surplus
-        ? 'plaid-surplus-seed.json'
-        : 'plaid-activity-seed.json',
+  cleanSavings
+    ? 'plaid-clean-savings-seed.json'
+    : renameMerchants
+      ? 'plaid-merchant-names-seed.json'
+      : weeklyIncome
+        ? 'plaid-weekly-income-seed.json'
+        : surplus
+          ? 'plaid-surplus-seed.json'
+          : 'plaid-activity-seed.json',
 );
 const envPath = resolve('.env.local');
 await mkdir(privateDir, { recursive: true, mode: 0o700 });
@@ -101,7 +108,33 @@ async function call(path, body) {
   return result;
 }
 if (!journal) {
-  if (renameMerchants) {
+  if (cleanSavings) {
+    const original = JSON.parse(
+      await readFile(
+        resolve(privateDir, 'plaid-merchant-names-seed.json'),
+        'utf8',
+      ),
+    );
+    if (
+      original.phase !== 'activated' ||
+      original.accessToken !== process.env.PLAID_ACCESS_TOKEN
+    )
+      throw new Error('Savings cleanup requires the active renamed demo seed');
+    const config = cleanSavingsHistory(original.config, original.anchor);
+    const count = (value) =>
+      value.override_accounts.reduce((n, a) => n + a.transactions.length, 0);
+    journal = {
+      phase: 'prepared',
+      previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
+      config,
+      anchor: original.anchor,
+      addedTransactions: count(config) - count(original.config),
+      cleanSavings: true,
+      nextBills: original.nextBills,
+      sampleRothProfile: original.sampleRothProfile,
+      weeklyIncome: original.weeklyIncome,
+    };
+  } else if (renameMerchants) {
     const original = JSON.parse(
       await readFile(
         resolve(privateDir, 'plaid-weekly-income-seed.json'),
@@ -301,7 +334,7 @@ for (const expected of journal.config.override_accounts) {
       'Custom account balance did not match; existing configuration is preserved',
     );
 }
-if (journal.renameMerchants) {
+if (journal.renameMerchants || journal.cleanSavings) {
   for (const expected of journal.config.override_accounts) {
     const actual = snapshot.accounts.find(
       (account) => account.kind === expected.subtype,
