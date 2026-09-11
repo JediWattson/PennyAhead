@@ -6,7 +6,11 @@ import { Dashboard } from './dashboard';
 import { Button } from './ui/button';
 import { PageLoading } from './page-loading';
 
-export function SandboxDashboard() {
+export function SandboxDashboard({
+  assistantProvider = 'mock',
+}: {
+  assistantProvider?: 'mock' | 'openai' | 'bedrock';
+}) {
   const [demo, setDemo] = useState<DemoForecast | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -38,7 +42,11 @@ export function SandboxDashboard() {
   }, [attempt]);
   if (demo)
     return (
-      <Dashboard initialDemo={demo} assistantProvider="mock" sandboxAvailable />
+      <Dashboard
+        initialDemo={demo}
+        assistantProvider={assistantProvider}
+        sandboxAvailable
+      />
     );
   if (!error) return <PageLoading />;
   return (

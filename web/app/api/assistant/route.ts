@@ -16,11 +16,12 @@ import {
   assistantMode,
   strandsReply,
 } from '../../../lib/server/strands-assistant.ts';
+import {
+  assistantAccess,
+  assistantBusyResponse,
+  liveAssistantError,
+} from '../../../lib/server/assistant-access.ts';
 export const runtime = 'nodejs';
-const active = new Set<string>();
-const recent = new Map<string, number>();
-let callsToday = 0;
-let day = '';
 export async function POST(request: Request) {
   const denied = requireInvite(request);
   if (denied) return denied;
@@ -82,28 +83,8 @@ export async function POST(request: Request) {
           { error: 'Start a demo session first.' },
           { status: 401 },
         );
-      const today = new Date().toISOString().slice(0, 10);
-      if (day !== today) {
-        day = today;
-        callsToday = 0;
-        recent.clear();
-      }
-      if (
-        active.has(token) ||
-        active.size >= 3 ||
-        Date.now() - (recent.get(token) ?? 0) < 3000 ||
-        callsToday >= 200
-      )
-        return Response.json(
-          {
-            error:
-              'The demo assistant is busy or has reached its daily limit. Try again later.',
-          },
-          { status: 429 },
-        );
-      active.add(token);
-      recent.set(token, Date.now());
-      callsToday++;
+      const release = assistantAccess.acquire(`demo:${token}`);
+      if (!release) return assistantBusyResponse();
       try {
         const reply = await strandsReply(
           body.message,
@@ -116,16 +97,10 @@ export async function POST(request: Request) {
         return Response.json(reply, {
           headers: { 'Cache-Control': 'no-store' },
         });
-      } catch {
-        return Response.json(
-          {
-            error:
-              'Live AI is unavailable. No transfer was created. The deterministic dashboard remains available.',
-          },
-          { status: 503 },
-        );
+      } catch (error) {
+        return liveAssistantError(error);
       } finally {
-        active.delete(token);
+        release();
       }
     }
     const assistant =

@@ -78,6 +78,7 @@ export interface AssistantReply {
     | 'get_accounts'
     | 'get_transactions'
     | 'get_forecast'
+    | 'get_bill_suggestion'
     | 'get_funding_proposal'
     | 'compare_funding_accounts'
     | 'check_transfer_timing'

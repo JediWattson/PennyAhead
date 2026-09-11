@@ -24,7 +24,7 @@
 
 - [x] Create the repository, license, README, and application skeleton. The Next.js/TypeScript app with shadcn/ui runs locally.
 - [x] M1a: Build a local mock assistant that reads balances through the bank-data interface. Clearly label its deterministic responses as mock behavior; no model credentials are required.
-- [ ] M1b (credential setup pending): Configure the Strands TypeScript SDK and live model access, replace the mock assistant, and verify a model-selected balance tool call. OpenAI is the selected initial provider, with a provider boundary for Amazon Bedrock later; the secure-key setup flow is not yet verified complete.
+- [x] M1b (local Bedrock verified): Configure Strands with Amazon Nova 2 Lite through the existing PennyAhead AWS profile. The local Sandbox chat produced live answers with model-selected `get_accounts`, `get_growth_plan`, `get_forecast`, and `get_bill_suggestion` calls. OpenAI remains optional and unverified; public deployment is separate.
 - [x] Seed synthetic checking and savings accounts and transaction history with three months of recurring merchant payments. Schedule detection remains in M2.
 - [x] Define bank-data and transfer interfaces shared by fixtures and future provider sandboxes. Local simulation is implemented; provider execution remains open.
 - [ ] Start Plaid and Dwolla sandbox setup to expose access problems early. [Plaid Sandbox access and the read-only application adapter are connected](docs/PLAID.md); Dwolla access remains pending.
@@ -33,7 +33,7 @@
 
 **Local verification:** The foundation was verified with eight backend/API tests and development/production HTTP checks. Current validation includes growth, bill forecasting, access control and simulation tests, production browser checks, TypeScript, lint and the production build; the live Plaid Sandbox check is opt-in.
 
-**Live integration criterion (M1b, credential setup pending):** A user can ask the Strands assistant about balances through an actual model-selected tool call. M1a does not count as live Strands verification. M2 and local M3 development may proceed using the mock while M1b remains open; complete M1b before claiming the working agent in the final demonstration.
+**Live integration criterion (M1b, locally verified):** A user can ask the Strands assistant about balances through an actual model-selected tool call. The local Bedrock Sandbox flow satisfies this; fixture-model tests alone do not. Validate the public demo separately.
 
 ## M2 — Upcoming bills and shortage forecasting
 

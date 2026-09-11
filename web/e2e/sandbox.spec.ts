@@ -38,6 +38,249 @@ async function sandboxFixture(): Promise<DemoForecast> {
   };
 }
 
+test('assistant Markdown renders formatting safely and contains wide content on desktop and mobile', async ({
+  page,
+}) => {
+  const view = await sandboxFixture();
+  await page.route('**/api/sandbox', (route) => route.fulfill({ json: view }));
+  await page.route('**/api/sandbox/growth', (route) =>
+    route.fulfill({
+      json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
+    }),
+  );
+  const markdown = [
+    '## Your plan',
+    'Set aside **$250.00** for Roth and *review your reserve*.',
+    '- Keep spending cash available.\n- Recheck after payday.',
+    '| Account | Current | Available | Suggested | Remaining | Timing |\n| --- | --- | --- | --- | --- | --- |\n| Checking | $1,510.00 | $1,500.00 | $250.00 | $1,250.00 | After review |',
+    '```ts\nconst plan = { contribution: "$250.00", description: "A long example that should scroll inside the code block rather than stretch the whole page" };\n```',
+    '[Read more](https://example.com/plan)',
+    '[Unsafe link](javascript:alert(1))',
+    '<script>window.markdownExecuted = true</script>',
+    '<img src="https://example.com/markdown-tracker" onerror="window.markdownExecuted = true">',
+    '![Hidden remote image](https://example.com/markdown-tracker)',
+  ].join('\n\n');
+  let imageRequests = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('markdown-tracker')) imageRequests++;
+  });
+  await page.route('**/api/sandbox/assistant', (route) =>
+    route.fulfill({
+      json: {
+        mode: 'mock',
+        source: 'plaid_sandbox',
+        asOf: view.snapshot.asOf,
+        reads: ['get_growth_plan'],
+        text: markdown,
+      },
+    }),
+  );
+  await page.goto('/sandbox');
+  await page
+    .getByLabel('Ask about your demo accounts')
+    .fill('**Keep user text literal**');
+  await page.getByRole('button', { name: 'Send message' }).click();
+  const response = page.locator('.message-response').last();
+  await expect(
+    response.getByRole('heading', { name: 'Your plan' }),
+  ).toBeVisible();
+  const bold = response.locator('[data-streamdown="strong"]');
+  await expect(bold).toHaveText('$250.00');
+  expect(
+    await bold.evaluate((node) => Number(getComputedStyle(node).fontWeight)),
+  ).toBeGreaterThanOrEqual(600);
+  await expect(response.locator('em')).toHaveText('review your reserve');
+  await expect(response.locator('li')).toHaveCount(2);
+  await expect(response.getByRole('table')).toHaveCount(1);
+  await expect(response.locator('pre')).toContainText('const plan');
+  await expect(
+    response.getByRole('link', { name: 'Read more' }),
+  ).toHaveAttribute('href', 'https://example.com/plan');
+  await expect(response.locator('a[href^="javascript:"]')).toHaveCount(0);
+  await expect(response.locator('script, img')).toHaveCount(0);
+  expect(await page.evaluate(() => 'markdownExecuted' in window)).toBe(false);
+  expect(imageRequests).toBe(0);
+  await expect(page.locator('.chat-message.user')).toContainText(
+    '**Keep user text literal**',
+  );
+  await expect(page.locator('.chat-message.user strong')).toHaveCount(0);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 });
+    await response.scrollIntoViewIfNeeded();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page
+      .locator('.assistant-panel')
+      .screenshot({ path: `work/chat-markdown-${width}.png` });
+  }
+});
+
+for (const width of [1440, 390]) {
+  test(`chat scrolls on send and preserves its position when long answers arrive at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    const view = await sandboxFixture();
+    await page.route('**/api/sandbox', (route) =>
+      route.fulfill({ json: view }),
+    );
+    await page.route('**/api/sandbox/growth', (route) =>
+      route.fulfill({
+        json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
+      }),
+    );
+    let release!: () => void;
+    const hold = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    let pending = hold();
+    await page.route('**/api/sandbox/assistant', async (route) => {
+      await pending;
+      await route.fulfill({
+        json: {
+          mode: 'mock',
+          source: 'plaid_sandbox',
+          asOf: view.snapshot.asOf,
+          reads: ['get_accounts'],
+          text: Array.from(
+            { length: 35 },
+            (_, i) =>
+              `Detail ${i + 1}: Review the displayed account balances before allocating money.`,
+          ).join('\n\n'),
+        },
+      });
+    });
+    await page.goto('/sandbox');
+    const log = page.getByRole('log');
+    const input = page.getByLabel('Ask about your demo accounts');
+    const send = page.getByRole('button', { name: 'Send message' });
+    for (let turn = 0; turn < 2; turn++) {
+      await input.fill(`Explain my balances ${turn + 1}`);
+      await send.click();
+      await expect(page.locator('.busy-note')).toBeVisible();
+      await expect
+        .poll(() =>
+          log.evaluate(
+            (node) => node.scrollHeight - node.clientHeight - node.scrollTop,
+          ),
+        )
+        .toBeLessThan(2);
+      const sentPosition = await log.evaluate((node) => node.scrollTop);
+      if (turn === 1) expect(sentPosition).toBeGreaterThan(500);
+      release();
+      await expect(page.locator('.busy-note')).toHaveCount(0);
+      await expect(input).toBeEnabled();
+      await expect
+        .poll(() => log.evaluate((node) => node.scrollTop))
+        .toBe(sentPosition);
+      expect(
+        await log.evaluate(
+          (node) => node.scrollHeight - node.clientHeight - node.scrollTop,
+        ),
+      ).toBeGreaterThan(500);
+      pending = hold();
+    }
+  });
+}
+
+test('chat shows a sent message immediately, adds one reply, and restores failed messages for retry', async ({
+  page,
+}) => {
+  const view = await sandboxFixture();
+  await page.route('**/api/sandbox', (route) => route.fulfill({ json: view }));
+  await page.route('**/api/sandbox/growth', (route) =>
+    route.fulfill({
+      json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
+    }),
+  );
+  let release!: () => void;
+  const hold = () =>
+    new Promise<void>((resolve) => {
+      release = resolve;
+    });
+  let pending = hold();
+  let fail = false;
+  let calls = 0;
+  await page.route('**/api/sandbox/assistant', async (route) => {
+    calls++;
+    await pending;
+    await route.fulfill(
+      fail
+        ? {
+            status: 503,
+            json: { error: 'The assistant is temporarily unavailable.' },
+          }
+        : {
+            json: {
+              mode: 'mock',
+              source: 'plaid_sandbox',
+              asOf: view.snapshot.asOf,
+              reads: ['get_accounts'],
+              text: 'Your checking has $148.60 available.',
+            },
+          },
+    );
+  });
+  await page.goto('/sandbox');
+  const input = page.getByLabel('Ask about your demo accounts');
+  const send = page.getByRole('button', { name: 'Send message' });
+  const prompt = 'What can I spend today?';
+  const suggestions = page.locator('.suggestions');
+  await expect(suggestions).toBeVisible();
+  const userMessages = page
+    .locator('.chat-message.user')
+    .filter({ hasText: prompt });
+  await input.fill(prompt);
+  await expect(suggestions).toHaveCount(0);
+  await input.fill('');
+  await expect(suggestions).toBeVisible();
+  await input.fill(prompt);
+  await send.click();
+  await expect(userMessages).toHaveCount(1);
+  await expect(userMessages).toBeVisible();
+  await expect(input).toHaveValue('');
+  await expect(suggestions).toHaveCount(0);
+  await expect(input).toBeDisabled();
+  await expect(page.locator('.busy-note')).toBeVisible();
+  await expect(page.getByRole('log')).not.toContainText(
+    'Your checking has $148.60 available.',
+  );
+  release();
+  await expect(page.getByRole('log')).toContainText(
+    'Your checking has $148.60 available.',
+  );
+  await expect(userMessages).toHaveCount(1);
+  await expect(input).toBeEnabled();
+  await expect(suggestions).toHaveCount(0);
+  pending = hold();
+  fail = true;
+  await input.fill('Try that again');
+  await send.click();
+  const retryMessage = page
+    .locator('.chat-message.user')
+    .filter({ hasText: 'Try that again' });
+  await expect(retryMessage).toHaveCount(1);
+  release();
+  await expect(page.locator('.assistant-controls [role=alert]')).toContainText(
+    'temporarily unavailable',
+  );
+  await expect(input).toHaveValue('Try that again');
+  await expect(retryMessage).toHaveCount(0);
+  pending = hold();
+  fail = false;
+  await send.click();
+  await expect(retryMessage).toHaveCount(1);
+  release();
+  await expect(input).toBeEnabled();
+  await expect(retryMessage).toHaveCount(1);
+  await expect(page.locator('.busy-note')).toHaveCount(0);
+  expect(calls).toBe(3);
+});
+
 test('forecast explains a flat window and distinguishes affordable variation from a cautious shortfall', async ({
   page,
 }) => {

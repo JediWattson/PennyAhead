@@ -6,9 +6,9 @@ PennyAhead helps people turn available cash into progress toward savings and ret
 
 ## Project status
 
-Created September 8, 2026; product focus updated September 10. The main experience is **Save and invest**: a synthetic 30-day spending-reserve plan with cash-buffer protection, a high-yield savings goal, limited 2026 Roth contribution checks, editable assumptions, and matching agent explanations. Contributions are previews only. The supporting bill forecast, monitoring, approved transfer simulations and revocable automation remain available. Chat currently uses a clearly labeled mock assistant. See [the growth-planning contract](docs/GROWTH.md).
+Created September 8, 2026; product focus updated September 10. The main experience is **Save and invest**: a synthetic 30-day spending-reserve plan with cash-buffer protection, a high-yield savings goal, limited 2026 Roth contribution checks, editable assumptions, and matching agent explanations. Contributions are previews only. The supporting bill forecast, monitoring, approved transfer simulations and revocable automation remain available. Chat defaults to a labeled mock assistant and supports live Bedrock when configured. See [the growth-planning contract](docs/GROWTH.md).
 
-The optional [Plaid Sandbox view](docs/PLAID.md) reads actual provider-generated test accounts into balances, transaction history, bill forecasts, savings/Roth planning and scripted chat. Bills suggests possible savings top-ups, shows what would remain, and explains when to review other options; users decide whether to act in their bank app. This recommendation flow needs no transfer provider. Sandbox spending is estimated from transaction history, with editable suggested buffers and savings targets; Roth income and contribution details are entered separately. The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **live model access is still unverified**. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
+The optional [Plaid Sandbox view](docs/PLAID.md) reads actual provider-generated test accounts into balances, transaction history, bill forecasts, savings/Roth planning and selectable mock or live chat. Bills suggests possible savings top-ups, shows what would remain, and explains when to review other options; users decide whether to act in their bank app. This recommendation flow needs no transfer provider. Sandbox spending is estimated from transaction history, with editable suggested buffers and savings targets; Roth income and contribution details are entered separately. The Strands SDK and OpenAI/Bedrock adapters are implemented and tested with a fixture model; **local Bedrock access and model-selected tool calls are verified**. AWS deployment files validate but no public deployment is claimed. [Milestones](MILESTONES.md) distinguish implementation from live integration evidence.
 
 ## Run locally
 
@@ -72,7 +72,7 @@ See [integration checkpoints](docs/INTEGRATIONS.md) for model and Dwolla setup. 
 - Explicit transfer approval, followed by an optional revocable automation rule with an amount cap and savings minimum.
 - Transfer status and a clear activity history.
 
-Use synthetic financial data and clearly labeled sandbox transfers for the hackathon demonstration. During M1a, a clearly labeled deterministic mock assistant reads fixture balances without model credentials. Live Strands model decisions and tool calls are deferred to M1b and remain required for the final agent demonstration. Simulated data and settlement must remain identifiable. A provider sandbox integration and a local transfer simulation are different evidence levels.
+Use synthetic financial data and clearly labeled sandbox transfers for the hackathon demonstration. During M1a, a clearly labeled deterministic mock assistant reads fixture balances without model credentials. Local M1b verification now includes live Bedrock model-selected tool calls; the public deployment still needs separate validation. Simulated data and settlement must remain identifiable. A provider sandbox integration and a local transfer simulation are different evidence levels.
 
 ## Demonstration
 
@@ -95,7 +95,7 @@ Also demonstrate a savings-minimum restriction and a transfer that would arrive 
 - **Transfer integration candidate:** Dwolla for transfers between the same customer's bank accounts.
 - **Deployment target:** a judge-accessible application; evaluate Amazon Bedrock AgentCore once the complete flow is stable.
 
-The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The implemented live adapter uses the **Strands TypeScript SDK** with explicit **OpenAI** or **Amazon Bedrock** selection. The default mock needs no credentials; live verification remains pending. See [agent setup](docs/AGENT.md) and `web/.env.example`. No API keys or real financial information belong in this repository.
+The application uses **TypeScript** for both frontend and backend, **Next.js App Router** for pages and API routes, and **React with shadcn/ui and Tailwind CSS** for the interface. The implemented live adapter uses the **Strands TypeScript SDK** with explicit **OpenAI** or **Amazon Bedrock** selection. The default mock needs no credentials; local Bedrock tool calls are verified. See [agent setup](docs/AGENT.md) and `web/.env.example`. No API keys or real financial information belong in this repository.
 
 Financial calculations and authorization belong in backend code. Approvals must bind to the exact accounts and amount. Retries and concurrent monitor runs must not duplicate a transfer. Pending transfers must not be presented as money received. Subscription dates and transfer arrival dates are estimates unless confirmed.
 

@@ -1,6 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import 'shadcn/tailwind.css';
+@source '../node_modules/streamdown/dist/*.js';
+@source '../node_modules/@streamdown/code/dist/*.js';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -547,22 +549,6 @@ h3 {
   font-size: 0.8rem;
   margin-top: 2px;
 }
-.mock-notice {
-  flex-shrink: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px 10px;
-  align-items: center;
-  background: #f5f7fa;
-  padding: 11px 24px;
-  border-block: 1px solid #e9edf2;
-  font-size: 0.8rem;
-  color: #647183;
-}
-.mock-notice strong {
-  font-weight: 600;
-  color: #3e5268;
-}
 .conversation {
   padding: 24px;
   min-height: 0;
@@ -580,12 +566,34 @@ h3 {
   letter-spacing: 0.7px;
   color: #5e7669;
 }
-.chat-message p {
+.chat-message > p {
   white-space: pre-wrap;
   font-size: 1rem;
   line-height: 1.65;
   margin-top: 7px;
   color: #34465b;
+}
+.message-response {
+  min-width: 0;
+  margin-top: 7px;
+  color: #34465b;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+.message-response :is(h1, h2, h3, h4, h5, h6) {
+  font-size: 1.05rem;
+  line-height: 1.4;
+  letter-spacing: normal;
+  font-weight: 650;
+}
+.message-response pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre;
+}
+.message-response :is(th, td) {
+  white-space: nowrap;
+  word-break: normal;
 }
 .chat-message.user {
   background: #edf4f0;
@@ -602,6 +610,12 @@ h3 {
 }
 .read-receipt svg {
   flex-shrink: 0;
+}
+details.read-receipt {
+  display: block;
+}
+details.read-receipt > div {
+  margin-top: 5px;
 }
 .busy-note {
   color: #567565;

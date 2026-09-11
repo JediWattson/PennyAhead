@@ -13,6 +13,10 @@ test('desktop chat fills the viewport as the page scrolls and restores its heigh
   await expect(page.getByRole('log')).toContainText(
     '$250.00 toward a Roth IRA',
   );
+  // Resize follows the bottom only when the reader has chosen that position.
+  await page.getByRole('log').evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
   await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await page.evaluate(() => window.scrollTo(0, 0));
   const panel = page.locator('.assistant-panel');

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { MessageResponse } from './ai-elements/message';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import type {
   AssistantReply,
@@ -106,19 +107,13 @@ export function Dashboard({
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      text: sandbox
-        ? `Your Plaid Sandbox test accounts are connected. Ask about saving and investing, balances, forecasts, or recent activity. I start with a spending estimate from your transactions and adjustable savings targets. ${initialDemo.sampleRothProfile ? 'This demo uses Alex’s labeled sample Roth profile.' : 'Roth eligibility details need your input.'} I use scripted replies; these are test records and no real money is connected.`
-        : 'Hi Alex. Let’s make room for your savings and retirement goals while protecting the money you need for spending. Ask me to explain your Save and invest plan, your balances, or upcoming bills. This demo uses synthetic accounts and a sample financial profile.',
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(() => {
     const conversation = conversationRef.current;
-    if (conversation) conversation.scrollTop = conversation.scrollHeight;
-  }, [messages, busy]);
+    if (conversation && messages.at(-1)?.role === 'user')
+      conversation.scrollTop = conversation.scrollHeight;
+  }, [messages]);
 
   useEffect(() => {
     const panel = assistantRef.current;
@@ -196,6 +191,9 @@ export function Dashboard({
     inFlight.current = true;
     setBusy(true);
     setError(null);
+    const pendingMessage: Message = { role: 'user', text: message };
+    setMessages((previous) => [...previous, pendingMessage]);
+    setDraft('');
     try {
       const response = await fetch(
         sandbox ? '/api/sandbox/assistant' : '/api/assistant',
@@ -238,11 +236,14 @@ export function Dashboard({
       if (version !== chatVersion.current) return;
       setMessages((previous) => [
         ...previous,
-        { role: 'user', text: message },
         { role: 'assistant', text: reply.text, reply },
       ]);
-      setDraft('');
     } catch (failure) {
+      if (version !== chatVersion.current) return;
+      setMessages((previous) =>
+        previous.filter((entry) => entry !== pendingMessage),
+      );
+      setDraft(message);
       setError(
         sandbox && failure instanceof Error
           ? `${failure.message} Your message is still here.`
@@ -643,18 +644,6 @@ export function Dashboard({
                 <p>Your PennyAhead assistant</p>
               </div>
             </div>
-            <div className="mock-notice">
-              <strong>
-                {assistantProvider === 'mock'
-                  ? 'Mock assistant'
-                  : 'Strands assistant'}
-              </strong>
-              <span>
-                {assistantProvider === 'mock'
-                  ? 'Scripted replies · No live AI connected'
-                  : `Read-only AI via ${assistantProvider === 'openai' ? 'OpenAI' : 'Amazon Bedrock'} · Synthetic data`}
-              </span>
-            </div>
             <div
               className="conversation"
               ref={conversationRef}
@@ -668,12 +657,18 @@ export function Dashboard({
                     {message.role === 'user'
                       ? 'YOU'
                       : message.reply?.mode === 'strands'
-                        ? 'PENNYAHEAD · STRANDS'
+                        ? 'PENNYAHEAD'
                         : assistantProvider === 'mock'
                           ? 'PENNYAHEAD · MOCK'
                           : 'PENNYAHEAD'}
                   </span>
-                  <p>{message.text}</p>
+                  {message.role === 'assistant' ? (
+                    <MessageResponse className="message-response">
+                      {message.text}
+                    </MessageResponse>
+                  ) : (
+                    <p>{message.text}</p>
+                  )}
                   {message.role === 'assistant' &&
                   message.reply?.toolTrace?.length ? (
                     <details className="read-receipt">
@@ -696,8 +691,11 @@ export function Dashboard({
                         : 'synthetic'}{' '}
                       {message.reply.reads[0] === 'get_growth_plan'
                         ? 'savings and Roth plan'
-                        : message.reply.reads[0] === 'get_funding_proposal'
-                          ? 'funding proposal'
+                        : [
+                              'get_funding_proposal',
+                              'get_bill_suggestion',
+                            ].includes(message.reply.reads[0])
+                          ? 'bill-funding suggestion'
                           : message.reply.reads[0] === 'get_forecast'
                             ? 'balance forecast'
                             : message.reply.reads[0] === 'get_accounts'
@@ -710,30 +708,34 @@ export function Dashboard({
               ))}
               {busy && (
                 <output className="busy-note">
-                  <LoaderCircle size={16} className="spin" /> Reading your demo
-                  data…
+                  <LoaderCircle size={16} className="spin" /> Thinking…
                 </output>
               )}
             </div>
             <div className="assistant-controls">
-              <p className="suggestion-label">TRY ASKING</p>
-              <div className="suggestions">
-                {suggestions.map((suggestion) => (
-                  <Button
-                    key={suggestion}
-                    variant="outline"
-                    className="suggestion"
-                    disabled={busy || forecastBusy || !demoSessionReady}
-                    onClick={() => {
-                      setDraft(suggestion);
-                      void ask(suggestion);
-                    }}
-                  >
-                    {suggestion}
-                    <ArrowRight size={15} />
-                  </Button>
-                ))}
-              </div>
+              {!draft.trim() &&
+                !messages.some((message) => message.role === 'user') && (
+                  <>
+                    <p className="suggestion-label">TRY ASKING</p>
+                    <div className="suggestions">
+                      {suggestions.map((suggestion) => (
+                        <Button
+                          key={suggestion}
+                          variant="outline"
+                          className="suggestion"
+                          disabled={busy || forecastBusy || !demoSessionReady}
+                          onClick={() => {
+                            setDraft(suggestion);
+                            void ask(suggestion);
+                          }}
+                        >
+                          {suggestion}
+                          <ArrowRight size={15} />
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
               <form onSubmit={submit} className="composer">
                 <label className="sr-only" htmlFor="question">
                   Ask about your demo accounts
@@ -765,7 +767,7 @@ export function Dashboard({
                 Balances, bills & forecasts ·{' '}
                 {assistantProvider === 'mock'
                   ? 'Mock assistant'
-                  : 'Strands assistant'}
+                  : 'AI assistant'}
               </p>
             </div>
           </aside>

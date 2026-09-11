@@ -12,6 +12,15 @@ import {
 } from '../../../../lib/server/plaid-bank.ts';
 import { MockAssistant } from '../../../../lib/server/mock-assistant.ts';
 import { buildGrowthPlan } from '../../../../lib/server/growth-plan.ts';
+import {
+  assistantMode,
+  strandsReply,
+} from '../../../../lib/server/strands-assistant.ts';
+import {
+  assistantAccess,
+  assistantBusyResponse,
+  liveAssistantError,
+} from '../../../../lib/server/assistant-access.ts';
 export const runtime = 'nodejs';
 export async function POST(request: Request) {
   const denied = requireInvite(request);
@@ -31,6 +40,28 @@ export async function POST(request: Request) {
       demo = sandboxForecast(observation, input.corrections);
     } catch {
       throw new SandboxError('INVALID_INPUT', 400);
+    }
+    const mode = assistantMode();
+    if (mode !== 'mock') {
+      const release = assistantAccess.acquire(`sandbox:${observation.id}`);
+      if (!release) return assistantBusyResponse();
+      try {
+        const reply = await strandsReply(
+          input.message,
+          demo,
+          null,
+          mode,
+          undefined,
+          planInput?.growth,
+        );
+        return Response.json(reply, {
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      } catch (error) {
+        return liveAssistantError(error);
+      } finally {
+        release();
+      }
     }
     const bank = {
       source: demo.snapshot.source,
