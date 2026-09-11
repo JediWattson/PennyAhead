@@ -1,3 +1,4 @@
+import { explainInvestmentPlan } from './investment-plan.ts';
 import type { GrowthPlan } from '../growth-contracts.ts';
 import { explainGrowthPlan } from './growth-plan.ts';
 import type {
@@ -125,6 +126,26 @@ export class MockAssistant implements Assistant {
         asOf: snapshot.asOf,
         reads: ['get_forecast', 'get_accounts'],
         text: `Using the displayed Plaid Sandbox observation: ${summary}${forecast.income?.streams.length ? `\n\n${explainIncome(forecast.income)} The bill protection check keeps the no-new-pay baseline.` : ''}\n\n${explainBillSuggestion(buildBillSuggestion(snapshot, forecast))}${forecast.warnings.length ? `\n\n${forecast.warnings.join(' ')}` : ''}`,
+      };
+    }
+    if (
+      /\b(etf|etfs|portfolio|holdings|stocks|bonds|brokerage|buy|purchase|trade)\b|investment mix/.test(
+        query,
+      ) &&
+      this.growthPlan
+    ) {
+      const investment = this.growthPlan.investment;
+      const holdings = investment.holdings;
+      const holdingsText = /\b(holdings|portfolio)\b/.test(query)
+        ? holdings?.status === 'observed' && holdings.accounts.length
+          ? `\n\n${holdings.source === 'synthetic' ? 'Sample' : 'Plaid Sandbox test'} Roth holdings: ${holdings.accounts.map((a) => `${a.name}: ${a.holdings.map((h) => `${h.ticker ?? h.name} ${formatMoney(h.valueCents)}`).join(', ')}`).join('; ')}. These are observed values, not live prices or buying power.`
+          : '\n\nNo Roth holdings are available in this observation.'
+        : '';
+      return {
+        ...base,
+        asOf: this.growthPlan.asOf,
+        reads: ['get_investment_plan'],
+        text: explainInvestmentPlan(investment) + holdingsText,
       };
     }
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {

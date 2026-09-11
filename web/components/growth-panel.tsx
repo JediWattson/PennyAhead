@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { InvestmentPanel } from './investment-panel';
 import { IncomeSummary } from './income-summary';
 import type { DemoForecast } from '../lib/contracts';
 import {
@@ -66,7 +67,7 @@ export function GrowthPanel({
   sessionId: string | null;
   busy: boolean;
   onChange: (inputs: GrowthInputs) => void;
-  onAsk: () => void;
+  onAsk: (message?: string) => void;
 }) {
   const sandbox = demo.snapshot.source === 'plaid_sandbox';
   const [retry, setRetry] = useState(0);
@@ -174,6 +175,13 @@ export function GrowthPanel({
     };
     try {
       const next: GrowthInputs = {
+        investment: {
+          horizonYears: Number(text('investmentYears')),
+          risk: text('investmentRisk') as NonNullable<
+            GrowthInputs['investment']
+          >['risk'],
+          reviewed: form.has('investmentReviewed'),
+        },
         ...(sandbox ? { budgetMode } : {}),
         spendingCents:
           sandbox && budgetMode === 'estimated'
@@ -385,9 +393,9 @@ export function GrowthPanel({
                 taxes and fees, and is not a bank offer.
               </p>
               <p>
-                A Roth IRA is an account, not an investment selection. This
-                planner does not choose securities or predict investment
-                returns.
+                Contributing to a Roth and investing inside it are separate
+                steps. The investment preview below illustrates a possible mix;
+                it does not predict returns or place orders.
               </p>
               <a
                 href="https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-ira-contribution-limits"
@@ -400,12 +408,27 @@ export function GrowthPanel({
             <Button
               variant="outline"
               className="growth-ask"
-              onClick={onAsk}
+              onClick={() => onAsk()}
               disabled={busy}
             >
               Explain my savings and Roth plan
               <ArrowUpRight size={16} />
             </Button>
+            {plan.investment && (
+              <InvestmentPanel
+                key={desired}
+                plan={plan.investment}
+                synthetic={!sandbox}
+                sessionId={sessionId}
+                snapshotId={sandbox ? demo.snapshotId : undefined}
+                busy={busy}
+                onAsk={() =>
+                  onAsk(
+                    'Explain this investment mix for my Roth IRA, including the example funds and how to use it at my brokerage.',
+                  )
+                }
+              />
+            )}
           </>
         )}
         <p className="growth-disclosure">
@@ -586,6 +609,55 @@ export function GrowthPanel({
               />
               Debt priorities and any workplace retirement match have been
               considered.
+            </label>
+          </fieldset>
+          <fieldset disabled={busy}>
+            <legend>Investing inside your Roth</legend>
+            <p>
+              {sandbox && !demo.sampleRothProfile
+                ? 'These preferences cannot be inferred from your bank activity.'
+                : 'Alex’s sample preferences are editable; they are not inferred from your finances.'}
+            </p>
+            <div className="growth-fields">
+              <label className="growth-field" htmlFor="investment-years">
+                <span>Years before you need this money</span>
+                <Input
+                  id="investment-years"
+                  name="investmentYears"
+                  type="number"
+                  min="0"
+                  max="80"
+                  step="1"
+                  required
+                  defaultValue={inputs.investment?.horizonYears ?? 0}
+                />
+              </label>
+              <label className="growth-field" htmlFor="investment-risk">
+                <span>Comfort with investment losses</span>
+                <select
+                  id="investment-risk"
+                  name="investmentRisk"
+                  defaultValue={inputs.investment?.risk ?? 'unknown'}
+                >
+                  <option value="unknown">Choose a preference</option>
+                  <option value="cautious">Cautious — smaller swings</option>
+                  <option value="balanced">
+                    Balanced — some swings for growth
+                  </option>
+                  <option value="growth">
+                    Growth — comfortable with large swings
+                  </option>
+                </select>
+              </label>
+            </div>
+            <label className="growth-check">
+              <input
+                type="checkbox"
+                name="investmentReviewed"
+                defaultChecked={inputs.investment?.reviewed ?? false}
+              />
+              I have reviewed this horizon and risk preference, including my
+              other retirement investments.
             </label>
           </fieldset>
           {formError && (

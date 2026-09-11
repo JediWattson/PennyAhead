@@ -4,7 +4,7 @@
 
 PennyAhead helps people turn available cash into progress toward savings and retirement goals. Its central question is: **What can I put toward my goals while keeping enough money available for spending?** Bill detection and shortage protection support that decision. They remain part of the product and the demonstration.
 
-The **Save & invest** tab provides an explainable allocation preview for both the synthetic demo and Plaid Sandbox balances. The synthetic example uses the **Save and invest** scenario, offers editable assumptions, calculates a cash-reserve contribution and a Roth IRA contribution, and lets the assistant explain the same backend result. It does not open an account, select an investment, or execute these contributions. Existing bill-funding simulations are separate.
+The **Save & invest** tab provides an explainable allocation preview for both the synthetic demo and Plaid Sandbox balances. The synthetic example uses the **Save and invest** scenario, offers editable assumptions, calculates a cash-reserve contribution and a Roth IRA contribution, and lets the assistant explain the same backend result. It does not open an account or execute these contributions. The [investment preview](INVESTMENTS.md) illustrates how a proposed Roth contribution could be invested after arrival. Existing bill-funding simulations are separate.
 
 ## Repeatable example
 
@@ -39,13 +39,13 @@ For an explicitly selected Sandbox surplus demonstration, `PENNYAHEAD_SANDBOX_SA
 
 The planner supports ordinary direct Roth contributions for **tax year 2026**, using entered compensation and contributions across all traditional and Roth IRAs. The general combined limit is $7,500, or $8,600 at age 50+, capped by eligible compensation. Income at or above the start of the applicable phase-out produces a review requirement; the planner does not calculate reduced limits. Above the upper threshold, no direct Roth amount is proposed. Married filing separately, unknown details and cases requiring spousal eligibility also require review.
 
-This deliberately limited model does not handle conversions, backdoor Roth strategies, rollovers, excess-contribution corrections, or investment selection. A Roth IRA is the account; contributing cash is separate from investing it.
+This deliberately limited model does not handle conversions, backdoor Roth strategies, rollovers, excess-contribution corrections, or personalized portfolio optimization. A Roth IRA is the account; contributing cash is separate from investing it.
 
 Sources checked September 10, 2026: [IRS contribution limits](https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-ira-contribution-limits), [IRS 2026 income thresholds](https://www.irs.gov/newsroom/401k-limit-increases-to-24500-for-2026-ira-limit-increases-to-7500), [CFPB emergency-fund guide](https://www.consumerfinance.gov/an-essential-guide-to-building-an-emergency-fund/).
 
 ## Agent, access and consistency
 
-`get_growth_plan` is a read-only Strands tool. Its inputs come from reviewed form values and the server-bound demo session; the model cannot supply account balances or change eligibility flags through the tool. Scripted chat calls the same calculation and labels its result as a preview. Live Strands execution remains pending separate credential verification.
+`get_growth_plan` is a read-only Strands tool. Its inputs come from reviewed form values and the server-bound demo session; the model cannot supply account balances or change eligibility flags through the tool. Scripted chat calls the same calculation and labels its result as a preview. Local Bedrock tool execution is verified separately; fixture-model tests do not establish live model behavior.
 
 The invite gate protects `/api/growth`; the handler also requires the existing random monitor capability. The endpoint reads current balances and settings and checks that they match the displayed context. The browser hides prior suggestions when the context or applied inputs change, waits for monitor settings to synchronize, aborts superseded requests, and rejects late results. Changing plan assumptions clears old chat explanations. API errors show a retry state rather than old allocation amounts.
 
@@ -58,4 +58,4 @@ Plan assumptions are held in the current page and sent only to this app's server
 3. Add explicitly authorized contribution simulation, separate from the existing bill-funding ledger, with destination-specific receipts and pending/failed reconciliation.
 4. Connect supported provider accounts and reconcile real observations before claiming provider contributions.
 
-Broader investing, securities selection and automated real-money execution are outside this first planning feature.
+The Roth investment preview now offers illustrative allocations and example securities. Real-money contributions and trading remain unconnected. See [investment scope](INVESTMENTS.md).

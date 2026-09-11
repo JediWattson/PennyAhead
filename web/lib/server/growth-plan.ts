@@ -1,3 +1,4 @@
+import { buildInvestmentPlan } from './investment-plan.ts';
 import { z } from 'zod';
 import type { DemoForecast } from '../contracts.ts';
 import type {
@@ -13,6 +14,14 @@ import { explainIncome } from './income.ts';
 const money = z.number().int().min(0).max(100000000);
 const schema = z
   .object({
+    investment: z
+      .object({
+        horizonYears: z.number().int().min(0).max(80),
+        risk: z.enum(['cautious', 'balanced', 'growth', 'unknown']),
+        reviewed: z.boolean(),
+      })
+      .strict()
+      .optional(),
     budgetMode: z.enum(['estimated', 'manual']).optional(),
     spendingCents: money,
     extraCommitmentsCents: money,
@@ -283,6 +292,11 @@ export function buildGrowthPlan(
     emergencyGapCents,
     hysaSuggestedCents,
     rothSuggestedCents,
+    investment: buildInvestmentPlan(
+      rothSuggestedCents,
+      inputs.investment,
+      demo.snapshot.rothHoldings,
+    ),
     keepInCheckingCents,
     hypotheticalAnnualInterestCents: Math.floor(
       (hysaSuggestedCents * inputs.hysaApyBasisPoints) / 10000,
@@ -303,5 +317,5 @@ export function explainGrowthPlan(plan: GrowthPlan): string {
     return `The savings and retirement plan needs more information. ${plan.blockers.join(' ')} No allocation is suggested. This preview uses ${source}; no money was moved.`;
   if (plan.status === 'cash_first')
     return `Keep cash available first: checking is ${formatMoney(plan.cashGapCents)} below the ${plan.budgetEstimate ? 'estimated' : 'entered'} spending reserve and buffer. Suggested new savings and Roth contributions are $0.00. ${plan.reasons.join(' ')} This preview uses ${source}; no money was moved.`;
-  return `Based on ${plan.budgetEstimate ? 'the transaction history and suggested reserves' : 'the entered demo assumptions'}, ${formatMoney(plan.availableForGoalsCents)} is ${plan.budgetEstimate ? 'potentially ' : ''}available for goals after spending and the checking buffer. This plan suggests ${formatMoney(plan.hysaSuggestedCents)} toward high-yield savings and ${formatMoney(plan.rothSuggestedCents)} toward a Roth IRA, leaving ${formatMoney(plan.keepInCheckingCents)} unallocated in checking.\n\n${plan.reasons.join(' ')}\n\nThis is a one-time planning preview using ${source}. No account was opened, investment selected, or contribution made.`;
+  return `Based on ${plan.budgetEstimate ? 'the transaction history and suggested reserves' : 'the entered demo assumptions'}, ${formatMoney(plan.availableForGoalsCents)} is ${plan.budgetEstimate ? 'potentially ' : ''}available for goals after spending and the checking buffer. This plan suggests ${formatMoney(plan.hysaSuggestedCents)} toward high-yield savings and ${formatMoney(plan.rothSuggestedCents)} toward a Roth IRA, leaving ${formatMoney(plan.keepInCheckingCents)} unallocated in checking.\n\n${plan.reasons.join(' ')}\n\nThis is a one-time planning preview using ${source}. No account was opened or contribution made.`;
 }

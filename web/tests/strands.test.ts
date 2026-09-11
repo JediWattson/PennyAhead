@@ -57,7 +57,7 @@ class ScriptedModel extends Model {
     messages: Message[],
     options?: StreamOptions,
   ): AsyncIterable<ModelStreamEvent> {
-    assert.equal(options!.toolSpecs!.length, this.sandbox ? 5 : 7);
+    assert.equal(options!.toolSpecs!.length, this.sandbox ? 6 : 8);
     if (this.sandbox) {
       assert(
         !options!.toolSpecs!.some((t) =>
@@ -103,7 +103,11 @@ class ScriptedModel extends Model {
       if (!this.invalidInput && !this.sandbox)
         assert.match(
           serialized,
-          this.readName === 'get_growth_plan' ? /hysaSuggestedUsd/ : /148\.60/,
+          this.readName === 'get_growth_plan'
+            ? /hysaSuggestedUsd/
+            : this.readName === 'get_investment_plan'
+              ? /proposed_roth_contribution/
+              : /148\.60/,
         );
       yield { type: 'modelContentBlockStartEvent' };
       yield {
@@ -251,6 +255,37 @@ void test('Strands growth tool reads the same backend allocation and cannot muta
       { name: 'get_growth_plan', status: 'completed' },
     ]);
     assert.equal(store.read(state.id)!.transfers.length, 0);
+  } finally {
+    store.close();
+  }
+});
+
+void test('Strands investment tool uses backend amounts and never gains an execution tool', async () => {
+  const store = new MonitorStore(':memory:');
+  try {
+    const state = store.create({
+      scenario: 'growth',
+      corrections: [],
+      enabled: true,
+      savingsMinimumCents: 100000,
+      timing: 'standard',
+    });
+    const model = new ScriptedModel();
+    model.readName = 'get_investment_plan';
+    const before = store.read(state.id);
+    const reply = await strandsReply(
+      'Explain my Roth investment mix',
+      await getSessionDemo(state),
+      state,
+      'openai',
+      model,
+      DEMO_GROWTH_INPUTS,
+    );
+    assert.deepEqual(reply.reads, ['get_investment_plan']);
+    assert.match(model.seenMessages, /VTI/);
+    assert.match(model.seenMessages, /90.00/);
+    assert.match(model.seenMessages, /not_connected/);
+    assert.deepEqual(store.read(state.id), before);
   } finally {
     store.close();
   }

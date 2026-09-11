@@ -571,11 +571,11 @@ export function Dashboard({
                   setMessages([]);
                   chatVersion.current++;
                 }}
-                onAsk={() => {
+                onAsk={(message) => {
                   document
                     .getElementById('assistant-heading')
                     ?.scrollIntoView({ block: 'start' });
-                  void ask('Explain my savings and Roth plan');
+                  void ask(message ?? 'Explain my savings and Roth plan');
                 }}
               />
             </TabsContent>
@@ -689,18 +689,20 @@ export function Dashboard({
                       {message.reply.source === 'plaid_sandbox'
                         ? 'Plaid Sandbox'
                         : 'synthetic'}{' '}
-                      {message.reply.reads[0] === 'get_growth_plan'
-                        ? 'savings and Roth plan'
-                        : [
-                              'get_funding_proposal',
-                              'get_bill_suggestion',
-                            ].includes(message.reply.reads[0])
-                          ? 'bill-funding suggestion'
-                          : message.reply.reads[0] === 'get_forecast'
-                            ? 'balance forecast'
-                            : message.reply.reads[0] === 'get_accounts'
-                              ? 'account balances'
-                              : 'transaction history'}{' '}
+                      {message.reply.reads[0] === 'get_investment_plan'
+                        ? 'Roth investment preview'
+                        : message.reply.reads[0] === 'get_growth_plan'
+                          ? 'savings and Roth plan'
+                          : [
+                                'get_funding_proposal',
+                                'get_bill_suggestion',
+                              ].includes(message.reply.reads[0])
+                            ? 'bill-funding suggestion'
+                            : message.reply.reads[0] === 'get_forecast'
+                              ? 'balance forecast'
+                              : message.reply.reads[0] === 'get_accounts'
+                                ? 'account balances'
+                                : 'transaction history'}{' '}
                       · {message.reply.asOf?.slice(0, 10)} snapshot
                     </span>
                   ) : null}

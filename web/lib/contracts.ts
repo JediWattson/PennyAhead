@@ -1,3 +1,4 @@
+import type { RothHoldings } from './investment-contracts.ts';
 /** Money is always integer US cents. Dates are ISO 8601, in UTC. */
 export type DataSource = 'synthetic' | 'plaid_sandbox';
 export interface Account {
@@ -26,6 +27,7 @@ export interface Transaction {
   availableBalanceEffect?: 'included' | 'excluded' | 'unknown';
 }
 export interface BankSnapshot {
+  rothHoldings?: RothHoldings;
   source: DataSource;
   asOf: string;
   accounts: Account[];
@@ -75,6 +77,7 @@ export interface AssistantReply {
   /** Backend reads actually executed; live responses also include a tool trace. */
   reads: Array<
     | 'get_growth_plan'
+    | 'get_investment_plan'
     | 'get_accounts'
     | 'get_transactions'
     | 'get_forecast'

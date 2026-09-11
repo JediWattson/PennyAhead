@@ -77,6 +77,7 @@ function page(added: unknown[] = [], extra = {}) {
 function fakeProvider(
   options: {
     pages?: unknown[];
+    investments?: unknown;
     accounts?: unknown[];
     updatedAt?: string | null;
     onRequest?: (path: string, body: Record<string, unknown>) => void;
@@ -93,7 +94,9 @@ function fakeProvider(
     assert.equal(body.access_token, credentials.accessToken);
     options.onRequest?.(address.pathname, body);
     let result: unknown;
-    if (address.pathname === '/transactions/sync') result = pages.shift();
+    if (address.pathname === '/investments/holdings/get')
+      result = options.investments;
+    else if (address.pathname === '/transactions/sync') result = pages.shift();
     else if (address.pathname === '/item/get')
       result = {
         item: { item_id: 'item', error: null },
@@ -117,7 +120,12 @@ function fakeProvider(
     if (result instanceof Response) return result;
     return Response.json(result);
   };
-  return new PlaidSandboxProvider(credentials, request, () => new Date(now));
+  return new PlaidSandboxProvider(
+    credentials,
+    request,
+    () => new Date(now),
+    options.investments !== undefined,
+  );
 }
 async function monthlySnapshot(): Promise<BankSnapshot> {
   const snapshot = await new FixtureBankProvider().getSnapshot(DEMO_OWNER_ID);
@@ -457,4 +465,92 @@ void test('Sandbox API and chat use the same corrected observation, reject unkno
       delete process.env.PENNYAHEAD_PLAID_SANDBOX_ENABLED;
     else process.env.PENNYAHEAD_PLAID_SANDBOX_ENABLED = enabled;
   }
+});
+
+void test('optional investment failures are isolated from bank balances and never expose provider errors', async () => {
+  const core = await fakeProvider().getSnapshot(PLAID_DEMO_OWNER_ID);
+  for (const investments of [
+    Response.json(
+      { error_code: 'NO_PRODUCT', secret: 'private-marker' },
+      { status: 400 },
+    ),
+    { invalid: 'private-marker' },
+  ]) {
+    const snapshot = await fakeProvider({ investments }).getSnapshot(
+      PLAID_DEMO_OWNER_ID,
+    );
+    assert.deepEqual(snapshot.accounts, core.accounts);
+    assert.deepEqual(snapshot.transactions, core.transactions);
+    assert.equal(snapshot.rothHoldings?.status, 'unavailable');
+    assert.deepEqual(snapshot.rothHoldings?.accounts, []);
+    assert.doesNotMatch(JSON.stringify(snapshot), /private-marker/);
+  }
+  const empty = await fakeProvider({
+    investments: {
+      item: { item_id: 'item' },
+      accounts: [],
+      securities: [],
+      holdings: [],
+    },
+  }).getSnapshot(PLAID_DEMO_OWNER_ID);
+  assert.equal(empty.rothHoldings?.status, 'not_connected');
+});
+
+void test('a Sandbox Item with no investment accounts is a disconnected state, not a refresh failure', async () => {
+  const snapshot = await fakeProvider({
+    investments: Response.json(
+      { error_code: 'NO_INVESTMENT_ACCOUNTS' },
+      { status: 400 },
+    ),
+  }).getSnapshot(PLAID_DEMO_OWNER_ID);
+  assert.equal(snapshot.rothHoldings?.status, 'not_connected');
+  assert.equal(snapshot.accounts.length, 2);
+});
+
+void test('successful Roth observations are returned separately from bank accounts', async () => {
+  const investments = {
+    item: { item_id: 'item' },
+    accounts: [
+      {
+        account_id: 'roth',
+        name: 'Sandbox Roth',
+        type: 'investment',
+        subtype: 'roth',
+        balances: {
+          current: 800,
+          iso_currency_code: 'USD',
+          unofficial_currency_code: null,
+        },
+      },
+    ],
+    securities: [
+      {
+        security_id: 'cash',
+        name: 'Cash',
+        ticker_symbol: null,
+        is_cash_equivalent: true,
+      },
+    ],
+    holdings: [
+      {
+        account_id: 'roth',
+        security_id: 'cash',
+        institution_value: 800,
+        institution_price_as_of: null,
+        iso_currency_code: 'USD',
+        unofficial_currency_code: null,
+      },
+    ],
+  };
+  const snapshot = await fakeProvider({ investments }).getSnapshot(
+    PLAID_DEMO_OWNER_ID,
+  );
+  assert.equal(snapshot.rothHoldings?.status, 'observed');
+  assert.equal(snapshot.rothHoldings?.source, 'plaid_sandbox');
+  assert.equal(
+    snapshot.rothHoldings?.accounts[0].holdings[0].valueCents,
+    80000,
+  );
+  assert.equal(snapshot.accounts.length, 2);
+  assert.ok(!snapshot.accounts.some((a) => a.id === 'roth'));
 });

@@ -100,6 +100,52 @@ export class FixtureBankProvider implements BankDataProvider {
     if (ownerId !== DEMO_OWNER_ID) throw new Error('Demo owner not found');
     const result = structuredClone(snapshot);
     if (this.scenario === 'growth') {
+      result.rothHoldings = {
+        status: 'observed',
+        source: 'synthetic',
+        retrievedAt: DEMO_NOW,
+        accounts: [
+          {
+            id: 'demo-roth',
+            name: 'Alex’s sample Roth IRA',
+            valueCents: 1200000,
+            holdings: [
+              {
+                id: 'demo-vti',
+                ticker: 'VTI',
+                name: 'Vanguard Total Stock Market ETF',
+                valueCents: 540000,
+                priceAsOf: DEMO_NOW.slice(0, 10),
+                cashEquivalent: false,
+              },
+              {
+                id: 'demo-vxus',
+                ticker: 'VXUS',
+                name: 'Vanguard Total International Stock ETF',
+                valueCents: 360000,
+                priceAsOf: DEMO_NOW.slice(0, 10),
+                cashEquivalent: false,
+              },
+              {
+                id: 'demo-bnd',
+                ticker: 'BND',
+                name: 'Vanguard Total Bond Market ETF',
+                valueCents: 250000,
+                priceAsOf: DEMO_NOW.slice(0, 10),
+                cashEquivalent: false,
+              },
+              {
+                id: 'demo-cash',
+                ticker: null,
+                name: 'Cash and cash equivalents',
+                valueCents: 50000,
+                priceAsOf: DEMO_NOW.slice(0, 10),
+                cashEquivalent: true,
+              },
+            ],
+          },
+        ],
+      };
       result.accounts[0].availableCents = 350000;
       result.accounts[0].currentCents = 353050;
     }

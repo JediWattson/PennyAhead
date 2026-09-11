@@ -1,6 +1,11 @@
+import type {
+  InvestmentPlan,
+  InvestmentPreferences,
+} from './investment-contracts.ts';
 import type { DataSource, IncomeOutlook } from './contracts.ts';
 
 export interface GrowthInputs {
+  investment?: InvestmentPreferences;
   /** Omitted on older/manual profiles. Estimates are always computed on the server. */
   budgetMode?: 'estimated' | 'manual';
   /** All bills, living costs and minimum debt payments for the next 30 days. */
@@ -39,6 +44,7 @@ export interface RothRoom {
 }
 
 export interface GrowthPlan {
+  investment: InvestmentPlan;
   income?: IncomeOutlook;
   expectedCashFlowCents?: number;
   budgetEstimate?: BudgetEstimate;
@@ -78,6 +84,7 @@ export interface BudgetEstimate {
 
 /** Public illustrative inputs for Alex, never inferred from the user's finances. */
 export const DEMO_GROWTH_INPUTS: GrowthInputs = {
+  investment: { horizonYears: 30, risk: 'balanced', reviewed: true },
   spendingCents: 270000,
   extraCommitmentsCents: 0,
   checkingBufferCents: 30000,
@@ -111,6 +118,7 @@ export function initialGrowthInputs(
     inputs.emergencyTargetCents = 0;
     inputs.budgetReviewed = false;
     if (sampleRothProfile) return inputs;
+    inputs.investment = { horizonYears: 0, risk: 'unknown', reviewed: false };
     inputs.retirementPrioritiesReviewed = false;
     inputs.roth = {
       ...inputs.roth,

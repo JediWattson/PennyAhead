@@ -1741,3 +1741,214 @@ summary:focus-visible {
     padding: 18px 14px;
   }
 }
+
+.investment-panel {
+  margin-top: 26px;
+  padding-top: 24px;
+  border-top: 1px solid #dde6e8;
+}
+.investment-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+.investment-eyebrow {
+  font-size: 0.75rem;
+  color: #52706a;
+}
+.investment-heading h3 {
+  margin-top: 5px;
+  font-size: 1.18rem;
+  letter-spacing: -0.025em;
+}
+.investment-badge {
+  background: #e8f3ef;
+  color: #326455;
+  border-radius: 999px;
+  padding: 5px 9px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+.investment-panel h4 {
+  font-size: 1.05rem;
+}
+.investment-panel p,
+.investment-panel ol {
+  color: #5c6c77;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin: 9px 0 16px;
+}
+.investment-panel a {
+  color: #216954;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.investment-panel .investment-basis {
+  color: #324d46;
+  margin-top: 20px;
+}
+.investment-mix {
+  display: flex;
+  height: 9px;
+  gap: 3px;
+  border-radius: 5px;
+  overflow: hidden;
+  margin: 15px 0;
+}
+.investment-color-0 {
+  background: #438570;
+}
+.investment-color-1 {
+  background: #91b6a6;
+}
+.investment-color-2 {
+  background: #97aac5;
+}
+.investment-row {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) 40px 80px;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid #e6eceb;
+  font-size: 0.88rem;
+}
+.investment-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.investment-row small {
+  display: block;
+  color: #65757d;
+  margin-top: 4px;
+}
+.investment-row > :nth-last-child(-n + 2) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.investment-panel .investment-note {
+  font-size: 0.77rem;
+}
+.investment-details {
+  margin-top: 19px;
+  font-size: 0.84rem;
+}
+.investment-details summary {
+  cursor: pointer;
+  color: #334d46;
+}
+.investment-details ol {
+  padding-left: 22px;
+}
+.investment-account {
+  margin: 14px 0;
+}
+.investment-account > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 7px 0;
+}
+.investment-account > div > :last-child {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 600px) {
+  .investment-heading {
+    flex-direction: column;
+  }
+  .investment-row {
+    gap: 8px;
+    grid-template-columns: 8px minmax(0, 1fr) 34px 68px;
+    font-size: 0.8rem;
+  }
+}
+
+.broker-connection {
+  border-top: 1px solid #dde6e8;
+  margin-top: 22px;
+  padding-top: 19px;
+}
+.broker-connection small {
+  color: #61776c;
+  font-size: 0.75rem;
+}
+
+.broker-status {
+  display: block;
+  color: #5c6c77;
+  font-size: 0.84rem;
+  line-height: 1.6;
+  margin: 9px 0 16px;
+}
+
+.roth-simulation {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #bfd7cd;
+  border-radius: 14px;
+  background: #f4f9f6;
+}
+.roth-simulation .investment-heading {
+  margin-bottom: 10px;
+}
+.roth-simulation > small {
+  display: block;
+  margin-top: 16px;
+  color: #5c6c77;
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.practice-balances {
+  margin: 12px 0 18px;
+  font-size: 0.83rem;
+}
+.practice-balances > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #dfe9e3;
+}
+.practice-balances dt {
+  color: #5c6c77;
+}
+.practice-balances dd {
+  margin: 0;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.practice-review {
+  padding: 14px;
+  margin: 16px 0;
+  border: 1px solid #dfe9e3;
+  border-radius: 9px;
+  background: white;
+}
+.practice-review h5 {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.practice-actions button {
+  height: auto;
+  min-height: 36px;
+  padding-block: 8px;
+  white-space: normal;
+}
+@media (max-width: 600px) {
+  .roth-simulation {
+    padding: 14px;
+  }
+}

@@ -1,3 +1,5 @@
+import { normalizeRothHoldings } from './plaid-investments.ts';
+import type { RothHoldings } from '../investment-contracts.ts';
 import { z } from 'zod';
 import type {
   BankDataProvider,
@@ -98,10 +100,12 @@ export class PlaidSandboxProvider implements BankDataProvider {
   };
   private request: typeof fetch;
   private now: () => Date;
+  private investmentsEnabled: boolean;
   constructor(
     credentials: { clientId: string; secret: string; accessToken: string },
     request: typeof fetch = fetch,
     now: () => Date = () => new Date(),
+    investmentsEnabled = false,
   ) {
     if (
       !credentials.clientId ||
@@ -112,6 +116,7 @@ export class PlaidSandboxProvider implements BankDataProvider {
     this.credentials = credentials;
     this.request = request;
     this.now = now;
+    this.investmentsEnabled = investmentsEnabled;
   }
   private async call(
     path: string,
@@ -142,6 +147,8 @@ export class PlaidSandboxProvider implements BankDataProvider {
           throw new SandboxError('SYNC_CHANGED');
         if (error.error_code === 'ITEM_LOGIN_REQUIRED')
           throw new SandboxError('RECONNECT_REQUIRED');
+        if (error.error_code === 'NO_INVESTMENT_ACCOUNTS')
+          throw new SandboxError('NO_INVESTMENT_ACCOUNTS');
         if (error.error_code === 'PRODUCT_NOT_READY')
           throw new SandboxError('HISTORY_LOADING');
         throw new SandboxError();
@@ -259,7 +266,34 @@ export class PlaidSandboxProvider implements BankDataProvider {
               : {}),
           };
         });
+      let rothHoldings: RothHoldings | undefined;
+      if (this.investmentsEnabled) {
+        try {
+          rothHoldings = normalizeRothHoldings(
+            await this.call(
+              '/investments/holdings/get',
+              {},
+              AbortSignal.any([signal, AbortSignal.timeout(7000)]),
+            ),
+            item.item.item_id,
+            observedAt,
+          );
+        } catch (error) {
+          // A missing Investments product must not take down the bank forecast.
+          rothHoldings = {
+            status:
+              error instanceof SandboxError &&
+              error.code === 'NO_INVESTMENT_ACCOUNTS'
+                ? 'not_connected'
+                : 'unavailable',
+            source: this.source,
+            retrievedAt: observedAt,
+            accounts: [],
+          };
+        }
+      }
       return {
+        ...(rothHoldings ? { rothHoldings } : {}),
         source: this.source,
         asOf: observedAt,
         accounts,
@@ -285,9 +319,14 @@ export class PlaidSandboxProvider implements BankDataProvider {
 export function configuredPlaidProvider(): PlaidSandboxProvider {
   if (!plaidSandboxEnabled() || process.env.PLAID_ENV !== 'sandbox')
     throw new SandboxError('NOT_CONFIGURED');
-  return new PlaidSandboxProvider({
-    clientId: process.env.PLAID_CLIENT_ID ?? '',
-    secret: process.env.PLAID_SECRET ?? '',
-    accessToken: process.env.PLAID_ACCESS_TOKEN ?? '',
-  });
+  return new PlaidSandboxProvider(
+    {
+      clientId: process.env.PLAID_CLIENT_ID ?? '',
+      secret: process.env.PLAID_SECRET ?? '',
+      accessToken: process.env.PLAID_ACCESS_TOKEN ?? '',
+    },
+    fetch,
+    () => new Date(),
+    process.env.PENNYAHEAD_PLAID_INVESTMENTS === 'true',
+  );
 }

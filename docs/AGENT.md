@@ -20,6 +20,8 @@ References: [Strands TypeScript quickstart](https://strandsagents.com/docs/user-
 
 `get_growth_plan` reads the same deterministic allocation as the primary dashboard: reviewed spending reserve, cash buffer, savings target and limited 2026 Roth contribution room. The model cannot write these inputs or select securities through the tool. Missing or unsupported details produce review states. Scripted chat uses the same calculation and explains hypothetical allocations; neither path opens accounts or contributes money. See [growth planning](GROWTH.md).
 
+`get_investment_plan` reads the same investment preview displayed below the contribution plan: selected horizon/risk, backend-calculated dollar allocations, example ETFs, optional observed Roth holdings and an explicit unconnected execution state. The model explains these examples; it cannot supply its own ticker, amount, price, order or buying power. Proposed contributions are not settled Roth cash. Observed holdings are not contribution records. See [investment scope](INVESTMENTS.md).
+
 ## Local Bedrock testing
 
 The ignored `web/.env.local` selects `PENNYAHEAD_ASSISTANT=bedrock`, `BEDROCK_MODEL_ID=us.amazon.nova-2-lite-v1:0`, `AWS_REGION=us-east-1`, and `AWS_PROFILE=pennyahead`. Both chat views use this server-selected provider; the interface labels live replies as AI and distinguishes Plaid Sandbox data from synthetic fixtures. AWS credentials stay in the existing CLI credential chain. On AWS, omit the local profile and grant the application workload role only the required Bedrock invocation permissions.

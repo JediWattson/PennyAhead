@@ -1,6 +1,6 @@
 # PennyAhead milestone plan
 
-**Status: the Save and invest planning experience is implemented as the primary product flow. Existing local M1–M3, M4 approval/simulation and M5 product flows are implemented. The read-only Plaid Sandbox view connects provider test balances and transactions to forecasting and scripted chat. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Live model verification, provider transfers, public deployment and submission remain open.**
+**Status: the Save and invest planning experience is implemented as the primary product flow. Existing local M1–M3, M4 approval/simulation and M5 product flows are implemented. The read-only Plaid Sandbox view connects provider test balances and transactions to forecasting and scripted chat. Strands SDK wiring, AWS deployment files and M6 submission drafts are prepared. Local Bedrock tool calls are verified; provider transfers, direct investment orders, public deployment and submission remain open.**
 
 ## Current priority — Savings and retirement progress
 
@@ -12,7 +12,14 @@
 - [x] Add a limited 2026 Roth contribution planner with combined-IRA room, compensation checks, user goals and explicit review states for unsupported cases.
 - [x] Give the assistant a read-only growth-plan tool that matches the dashboard's backend calculations.
 - [x] Hide stale suggestions when assumptions or balances change; keep growth APIs behind private judge access.
-- [ ] Verify the live Strands growth-plan explanation using actual model-selected tool calls.
+- [x] Verify the local Bedrock growth-plan explanation using actual model-selected tool calls.
+- [x] Add a Roth investment preview with reviewed horizon/risk, example ETFs, cent-exact allocations and matching assistant tools.
+- [x] Add separate sample Roth holdings and an optional Plaid Sandbox holdings reader.
+- [ ] Validate a connected provider Roth observation: the current Sandbox Item returns `NO_INVESTMENT_ACCOUNTS`.
+- [x] Authenticate with Alpaca Broker Sandbox through OAuth and expose its real account connection state.
+- [ ] Enable Roth creation: OAuth and account reads succeed; the latest test creation returns 422, `IRA accounts are not allowed for this correspondent`.
+- [x] Add a separate browser-only Roth practice ledger with contribution review, settlement/failure and purchase review, fills/rejection; source balances remain unchanged.
+- [ ] Validate a brokerage Roth account and order flow before adding direct Roth orders; see [investment integration path](docs/INVESTMENTS.md).
 - [ ] Add durable goals/progress and explicitly approved contribution simulation with separate destination receipts.
 - [ ] Verify a supported provider contribution flow before claiming external execution.
 
