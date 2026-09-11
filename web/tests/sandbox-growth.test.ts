@@ -16,13 +16,45 @@ import {
   DEMO_GROWTH_INPUTS,
   initialGrowthInputs,
 } from '../lib/growth-contracts.ts';
-import { buildGrowthPlan } from '../lib/server/growth-plan.ts';
+import {
+  buildGrowthPlan,
+  explainGrowthPlan,
+} from '../lib/server/growth-plan.ts';
 
 const request = (body: unknown) =>
   new Request('http://localhost/api/sandbox/growth', {
     method: 'POST',
     body: JSON.stringify(body),
   });
+
+void test('an explicitly selected sample Roth profile enables a surplus preview without treating Plaid deposits as eligibility', async () => {
+  const snapshot = await new FixtureBankProvider('growth').getSnapshot(
+    DEMO_OWNER_ID,
+  );
+  snapshot.source = 'plaid_sandbox';
+  snapshot.accounts[0].availableCents = 1000000;
+  snapshot.accounts[0].currentCents = 1000000;
+  const demo = sandboxForecast({
+    id: 'sample-profile',
+    snapshot,
+    evaluatedAt: DEMO_NOW,
+    createdAt: Date.parse(DEMO_NOW),
+  });
+  demo.sampleRothProfile = true;
+  const inputs = initialGrowthInputs('plaid_sandbox', demo.sampleRothProfile);
+  assert.equal(inputs.budgetMode, 'estimated');
+  assert.equal(inputs.roth.compensationCents, 6000000);
+  assert.equal(inputs.roth.rothContributionsCents, 250000);
+  const surplus = buildGrowthPlan(demo, inputs, 0);
+  assert.equal(surplus.rothSuggestedCents, 25000);
+  assert.match(
+    explainGrowthPlan(surplus),
+    /sample inputs, not inferred from Plaid/,
+  );
+  const unknown = initialGrowthInputs('plaid_sandbox');
+  assert.equal(buildGrowthPlan(demo, unknown, 0).rothSuggestedCents, 0);
+  assert.ok(surplus.hysaSuggestedCents > 0);
+});
 
 void test('Sandbox planning and chat use the stored observation, corrections and entered goals without refreshing or moving money', async () => {
   const globals = globalThis as typeof globalThis & {

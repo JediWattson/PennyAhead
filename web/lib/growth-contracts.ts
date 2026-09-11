@@ -1,4 +1,4 @@
-import type { DataSource } from './contracts.ts';
+import type { DataSource, IncomeOutlook } from './contracts.ts';
 
 export interface GrowthInputs {
   /** Omitted on older/manual profiles. Estimates are always computed on the server. */
@@ -39,6 +39,8 @@ export interface RothRoom {
 }
 
 export interface GrowthPlan {
+  income?: IncomeOutlook;
+  expectedCashFlowCents?: number;
   budgetEstimate?: BudgetEstimate;
   status: 'ready' | 'cash_first' | 'needs_review';
   source: DataSource;
@@ -97,7 +99,10 @@ export const DEMO_GROWTH_INPUTS: GrowthInputs = {
   },
 };
 
-export function initialGrowthInputs(source: DataSource): GrowthInputs {
+export function initialGrowthInputs(
+  source: DataSource,
+  sampleRothProfile = false,
+): GrowthInputs {
   const inputs = structuredClone(DEMO_GROWTH_INPUTS);
   if (source === 'plaid_sandbox') {
     inputs.budgetMode = 'estimated';
@@ -105,6 +110,7 @@ export function initialGrowthInputs(source: DataSource): GrowthInputs {
     inputs.checkingBufferCents = 0;
     inputs.emergencyTargetCents = 0;
     inputs.budgetReviewed = false;
+    if (sampleRothProfile) return inputs;
     inputs.retirementPrioritiesReviewed = false;
     inputs.roth = {
       ...inputs.roth,

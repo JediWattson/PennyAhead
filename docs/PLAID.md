@@ -33,6 +33,10 @@ node --experimental-strip-types --env-file=.env.local scripts/seed-plaid-activit
 
 Restart the local app after activation, then refresh `/sandbox`. The seed is dated; it does not manufacture new activity on each page load. A later demo date needs a newly prepared scenario. The default synthetic demo is unchanged. See [Plaid custom test data](https://plaid.com/docs/sandbox/user-custom/) and [Sandbox history options](https://plaid.com/docs/api/sandbox/#sandboxpublic_tokencreate).
 
+For the surplus demonstration, run the same script with `--surplus --activate`. It clones the active activity seed into another custom Sandbox Item with $1,500 available checking, preserving its transaction history and savings balance. It verifies that the planner produces a positive Roth preview before selecting the new Item. A separate ignored journal preserves the prior Item for recovery; it adds no duplicate transactions.
+
+The surplus setup also enables `PENNYAHEAD_SANDBOX_SAMPLE_ROTH=true`. The UI explicitly labels Alex's sample profile: age 30, single, $60,000 annual compensation/modified AGI and $2,500 already contributed to a Roth IRA. These editable values are not supplied or inferred by Plaid. With the September 10 seed, the plan suggests $728.87 toward savings and $250 toward Roth, leaving $521.13 in checking. Normal Sandbox setups without this opt-in still start with unconfirmed Roth details. The weekly-income outlook described below is conditional; only money already available in checking is allocated.
+
 ## Data and forecast contract
 
 - The adapter reads `/transactions/sync`, `/item/get` and `/accounts/balance/get`. Sync pages are applied to a candidate snapshot with additions, modifications and removals. A pagination mutation discards the candidate and restarts once from the original cursor; repeated mutation, loops, malformed data and more than 20 pages fail the read.
@@ -66,3 +70,12 @@ References: [Plaid account and balance semantics](https://plaid.com/docs/api/acc
 ## Savings and retirement planning
 
 The **Save & invest** tab is available for Sandbox accounts. It reads the same stored observation as balances, forecast and chat, and recalculates after a successful refresh or bill correction. Spending starts with an estimate from posted checking history, plus editable suggested buffers and savings targets. Income and IRA details are requested separately for Roth planning. The planner reserves spending and a checking buffer, then previews savings and Roth contributions. Missing or uncertain data pauses suggestions. This flow does not read investment holdings, open an IRA or execute contributions.
+
+
+## Weekly income demo
+
+After the surplus seed, run `node --experimental-strip-types --env-file=.env.local scripts/seed-plaid-activity.mjs --weekly-income --activate` from `web`. It creates a new custom Item with eight $500 Friday payroll credits strictly before the setup date, retains the prior 43 transactions and balances, and verifies a detected weekly stream before changing local configuration. The separate ignored journal preserves the preceding Item for recovery. The current feed contains 51 transactions; its available checking balance is still $1,500. Seeding test history does not simulate bank settlement.
+
+The adapter retains the provider transaction description as well as the normalized merchant name. Weekly detection needs at least four payroll-like credits, six to eight days apart, with amounts within a 25% range. Median amounts and seven-day recurrence produce explicit future dates. Refunds, transfers and interest descriptions are excluded. Stale/incomplete data, matching pending pay and overdue paydays pause the affected stream. This is a local inference from transaction history, not Plaid's income-verification product, a guarantee of future pay, or proof of Roth eligibility.
+
+Bills shows a separate blue line for expected pay, alongside the original bill-only baseline and daily values. Save & invest shows 30-day incoming pay and the difference from planned spending. Chat uses those same server-computed amounts and dates. Future deposits do not reduce funding gaps or increase today's savings/Roth allocation. The September 11 observation estimates $1,000 over 14 days and $2,500 over 30 days; counts change with the observation date. Once a payday passes without a new posted paycheck, refresh shows that the stream needs review rather than inventing another deposit.

@@ -1,5 +1,45 @@
 import { expect, test } from '@playwright/test';
 
+test('desktop chat fills the viewport as the page scrolls and restores its height at the top', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+  await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
+  await expect(page.getByTestId('growth-title')).toContainText('$400.00');
+  await page
+    .getByRole('button', { name: 'Explain my savings and Roth plan' })
+    .click();
+  await expect(page.getByRole('log')).toContainText(
+    '$250.00 toward a Roth IRA',
+  );
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  const panel = page.locator('.assistant-panel');
+  const initial = (await panel.boundingBox())!.height;
+  await page.evaluate(() => window.scrollTo(0, 500));
+  await expect
+    .poll(async () => (await panel.boundingBox())!.height)
+    .toBeGreaterThan(initial + 100);
+  await expect.poll(async () => (await panel.boundingBox())!.y).toBe(20);
+  await expect(
+    page.getByLabel('Ask about your demo accounts'),
+  ).toBeInViewport();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect
+    .poll(async () => Math.abs((await panel.boundingBox())!.height - initial))
+    .toBeLessThan(2);
+  await expect
+    .poll(async () =>
+      page
+        .getByRole('log')
+        .evaluate(
+          (node) => node.scrollHeight - node.clientHeight - node.scrollTop,
+        ),
+    )
+    .toBeLessThan(24);
+});
+
 test('account cards filter activity and preserve selection across detail tabs', async ({
   page,
 }) => {

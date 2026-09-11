@@ -9,6 +9,9 @@ import {
 } from '../lib/server/plaid-bank.ts';
 import { buildForecast } from '../lib/server/forecast.ts';
 import { activityFixture } from './plaid-activity-fixture.ts';
+import { buildGrowthPlan } from '../lib/server/growth-plan.ts';
+import { initialGrowthInputs } from '../lib/growth-contracts.ts';
+import { weeklyIncomeTransactions } from './weekly-income-fixture.ts';
 
 // Run from web. Default: prepare only. --activate creates, verifies, then selects a test Item.
 if (
@@ -17,7 +20,17 @@ if (
 )
   throw new Error('An existing Plaid Sandbox Item is required');
 const privateDir = resolve('work/private');
-const journalPath = resolve(privateDir, 'plaid-activity-seed.json');
+const surplus = process.argv.includes('--surplus');
+const weeklyIncome = process.argv.includes('--weekly-income');
+if (surplus && weeklyIncome) throw new Error('Choose one seed mode');
+const journalPath = resolve(
+  privateDir,
+  weeklyIncome
+    ? 'plaid-weekly-income-seed.json'
+    : surplus
+      ? 'plaid-surplus-seed.json'
+      : 'plaid-activity-seed.json',
+);
 const envPath = resolve('.env.local');
 await mkdir(privateDir, { recursive: true, mode: 0o700 });
 async function writePrivate(path, value) {
@@ -83,13 +96,70 @@ async function call(path, body) {
   return result;
 }
 if (!journal) {
-  const snapshot =
-    await configuredPlaidProvider().getSnapshot(PLAID_DEMO_OWNER_ID);
-  journal = {
-    phase: 'prepared',
-    previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
-    ...activityFixture(snapshot, new Date().toISOString().slice(0, 10)),
-  };
+  if (weeklyIncome) {
+    const original = JSON.parse(
+      await readFile(resolve(privateDir, 'plaid-surplus-seed.json'), 'utf8'),
+    );
+    if (
+      original.phase !== 'activated' ||
+      original.accessToken !== process.env.PLAID_ACCESS_TOKEN
+    )
+      throw new Error(
+        'Weekly income requires the currently active surplus seed',
+      );
+    const anchor = new Date().toISOString().slice(0, 10);
+    const config = structuredClone(original.config);
+    config.seed = `${config.seed}-weekly-income`;
+    const checking = config.override_accounts.find(
+      (account) => account.subtype === 'checking',
+    );
+    checking.transactions.push(...weeklyIncomeTransactions(anchor));
+    journal = {
+      phase: 'prepared',
+      previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
+      config,
+      anchor,
+      nextBills: original.nextBills,
+      addedTransactions: 8,
+      sampleRothProfile: true,
+      weeklyIncome: true,
+    };
+  } else if (surplus) {
+    const original = JSON.parse(
+      await readFile(resolve(privateDir, 'plaid-activity-seed.json'), 'utf8'),
+    );
+    if (
+      original.phase !== 'activated' ||
+      original.accessToken !== process.env.PLAID_ACCESS_TOKEN
+    )
+      throw new Error(
+        'The surplus demo requires the currently active activity seed',
+      );
+    const config = structuredClone(original.config);
+    config.seed = `${config.seed}-surplus`;
+    const checking = config.override_accounts.find(
+      (account) => account.subtype === 'checking',
+    );
+    checking.starting_balance += 1500 - checking.force_available_balance;
+    checking.force_available_balance = 1500;
+    journal = {
+      phase: 'prepared',
+      previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
+      config,
+      anchor: original.anchor,
+      nextBills: original.nextBills,
+      addedTransactions: 0,
+      sampleRothProfile: true,
+    };
+  } else {
+    const snapshot =
+      await configuredPlaidProvider().getSnapshot(PLAID_DEMO_OWNER_ID);
+    journal = {
+      phase: 'prepared',
+      previousAccessToken: process.env.PLAID_ACCESS_TOKEN,
+      ...activityFixture(snapshot, new Date().toISOString().slice(0, 10)),
+    };
+  }
   await save();
 }
 console.log(
@@ -187,6 +257,40 @@ for (const expected of journal.config.override_accounts) {
       'Custom account balance did not match; existing configuration is preserved',
     );
 }
+const growthPlan = journal.sampleRothProfile
+  ? buildGrowthPlan(
+      {
+        snapshot,
+        forecast,
+        sampleRothProfile: true,
+        clock: 'provider-observation',
+        scenario: 'shortfall',
+        corrections: [],
+      },
+      initialGrowthInputs('plaid_sandbox', true),
+      0,
+    )
+  : null;
+if (
+  journal.weeklyIncome &&
+  (!forecast.income?.streams.some(
+    (stream) =>
+      stream.status === 'estimated' &&
+      stream.amountCents === 50000 &&
+      stream.evidenceIds.length === 8,
+  ) ||
+    forecast.income.expected30DaysCents <= 0)
+)
+  throw new Error(
+    'Weekly pay was not detected in the provider history; existing configuration is preserved',
+  );
+if (
+  growthPlan &&
+  (growthPlan.status !== 'ready' || growthPlan.rothSuggestedCents <= 0)
+)
+  throw new Error(
+    'The surplus Item did not produce a usable Roth preview; existing configuration is preserved',
+  );
 journal.phase = 'verified';
 journal.verifiedAt = new Date().toISOString();
 await save();
@@ -199,13 +303,17 @@ if (![journal.previousAccessToken, journal.accessToken].includes(currentToken))
   throw new Error(
     'The configured Item changed during setup; refusing to overwrite it',
   );
-await writePrivate(
-  envPath,
-  env.replace(
-    /^PLAID_ACCESS_TOKEN=.*$/m,
-    `PLAID_ACCESS_TOKEN=${journal.accessToken}`,
-  ),
+let updatedEnv = env.replace(
+  /^PLAID_ACCESS_TOKEN=.*$/m,
+  `PLAID_ACCESS_TOKEN=${journal.accessToken}`,
 );
+if (journal.sampleRothProfile) {
+  const setting = 'PENNYAHEAD_SANDBOX_SAMPLE_ROTH=true';
+  updatedEnv = /^PENNYAHEAD_SANDBOX_SAMPLE_ROTH=.*$/m.test(updatedEnv)
+    ? updatedEnv.replace(/^PENNYAHEAD_SANDBOX_SAMPLE_ROTH=.*$/m, setting)
+    : `${updatedEnv.trimEnd()}\n${setting}\n`;
+}
+await writePrivate(envPath, updatedEnv);
 journal.phase = 'activated';
 await save();
 console.log(
@@ -216,6 +324,18 @@ console.log(
     scheduledCents: forecast.scheduledCents,
     shortageCents: forecast.shortageCents,
     cautiousShortageCents: forecast.cautiousShortageCents,
+    ...(journal.weeklyIncome
+      ? {
+          expectedIncome14DaysCents: forecast.income.expected14DaysCents,
+          expectedIncome30DaysCents: forecast.income.expected30DaysCents,
+        }
+      : {}),
+    ...(growthPlan
+      ? {
+          hysaSuggestedCents: growthPlan.hysaSuggestedCents,
+          rothSuggestedCents: growthPlan.rothSuggestedCents,
+        }
+      : {}),
     bills: forecast.bills.map((bill) => ({
       merchant: bill.merchant,
       nextDate: bill.nextDate,

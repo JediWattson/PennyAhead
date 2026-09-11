@@ -51,3 +51,8 @@ Corrections live in the current browser page's state and are sent with each fore
 The chart covers detected bills and explicitly reconciled pending activity. It does not predict discretionary spending, fees, unrecorded bills, or future income. A positive result means those detected charges fit the supplied balance; it is not a guarantee that an account will remain positive.
 
 M2 does not complete live Strands integration, independent background monitoring, funding proposals, or provider transfers. The local monitoring and proposal follow-on is documented in [the M3 contract](MONITORING.md); live model access and provider transfers remain separate integration milestones.
+
+
+## Conditional weekly-pay outlook
+
+The forecast also detects stable payroll-like weekly credit streams from the reconciled checking history. It returns an income schedule and a separate balance-with-income series. The bill-only balances, shortfall status and cautious funding calculation remain the basis for protecting cash already available. The UI's blue line adds expected pay; it is conditional on those deposits arriving. Detection rules and the repeatable provider test setup are documented in [Plaid weekly income](PLAID.md#weekly-income-demo).

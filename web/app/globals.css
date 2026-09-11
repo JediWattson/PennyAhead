@@ -479,11 +479,17 @@ h3 {
 .transaction-amount .pending-label {
   color: #886014;
 }
+.sandbox-workspace {
+  --chat-top-space: 180px;
+}
 .assistant-panel {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  height: min(680px, calc(100dvh - 340px));
+  height: var(
+    --chat-panel-height,
+    min(900px, calc(100dvh - var(--chat-top-space, 340px)))
+  );
   min-height: 480px;
   background: #fff;
   border: 1px solid var(--border);
@@ -690,7 +696,7 @@ footer {
   }
   .assistant-panel {
     grid-row: 2;
-    height: 580px;
+    height: 720px;
     min-height: 0;
     max-height: calc(100dvh - 32px);
   }
@@ -1498,6 +1504,37 @@ summary:focus-visible {
   white-space: normal;
   min-height: 42px;
   height: auto;
+}
+.income-line {
+  fill: none;
+  stroke: #326bba;
+  stroke-width: 2.5;
+  stroke-dasharray: 7 3;
+}
+.income-summary {
+  margin: 20px 0;
+  padding: 18px;
+  border-radius: 14px;
+  background: #edf4fc;
+  color: #345473;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.income-summary ul {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+.income-summary li {
+  display: grid;
+  gap: 3px;
+  margin: 10px 0;
+}
+.income-summary p {
+  margin: 8px 0;
+}
+.income-summary small {
+  display: block;
 }
 .growth-estimate {
   margin: 20px 0;

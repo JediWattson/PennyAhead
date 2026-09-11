@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { IncomeSummary } from './income-summary';
 import type { DemoForecast } from '../lib/contracts';
 import {
   initialGrowthInputs,
@@ -297,6 +298,11 @@ export function GrowthPanel({
                 </p>
               </div>
             )}
+            <IncomeSummary
+              income={plan.income}
+              horizonDays={30}
+              cashFlowCents={plan.expectedCashFlowCents}
+            />
             <div className="growth-allocations">
               <article>
                 <span className="growth-goal-icon">
@@ -404,7 +410,7 @@ export function GrowthPanel({
         )}
         <p className="growth-disclosure">
           {sandbox
-            ? 'Plaid Sandbox balances and transactions · Spending is estimated from history unless you enter your own budget. Suggested buffers and reserve targets are adjustable. Roth eligibility and IRA contributions need your details.'
+            ? `Plaid Sandbox balances and transactions · Spending is estimated from history unless you enter your own budget. Suggested buffers and reserve targets are adjustable. ${demo.sampleRothProfile ? 'Roth planning starts from the labeled sample profile.' : 'Roth eligibility and IRA contributions need your details.'}`
             : 'Alex’s illustrative profile · Synthetic money.'}{' '}
           This previews a possible allocation; no account is opened and no money
           is moved. Assumptions reset when you reload.
@@ -598,7 +604,12 @@ export function GrowthPanel({
               onClick={() => {
                 setFormError('');
                 setBudgetMode(sandbox ? 'estimated' : 'manual');
-                onChange(initialGrowthInputs(demo.snapshot.source));
+                onChange(
+                  initialGrowthInputs(
+                    demo.snapshot.source,
+                    demo.sampleRothProfile,
+                  ),
+                );
                 setRetry((value) => value + 1);
               }}
             >

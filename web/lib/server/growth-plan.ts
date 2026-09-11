@@ -8,6 +8,7 @@ import type {
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
 import { estimateBudget } from './budget-estimate.ts';
+import { explainIncome } from './income.ts';
 
 const money = z.number().int().min(0).max(100000000);
 const schema = z
@@ -228,12 +229,21 @@ export function buildGrowthPlan(
   const keepInCheckingCents =
     availableForGoalsCents - hysaSuggestedCents - rothSuggestedCents;
   const reasons = [
-    `Keep ${formatMoney(spendingReserveCents)} for the next 30 days and ${formatMoney(inputs.checkingBufferCents)} as your checking buffer. Future paychecks are not counted.`,
+    `Keep ${formatMoney(spendingReserveCents)} for the next 30 days and ${formatMoney(inputs.checkingBufferCents)} as your checking buffer. Future paychecks are not counted in today's allocation.`,
     emergencyGapCents > 0
       ? `Your cash reserve is ${formatMoney(emergencyGapCents)} below your ${formatMoney(emergencyTargetCents)} target. This plan fills that gap before allocating to retirement.`
       : `Your ${budgetEstimate ? 'suggested' : 'entered'} cash-reserve target is covered by unearmarked savings in this snapshot.`,
     roth.reason,
   ];
+  const income = demo.forecast.income;
+  if (income?.streams.length)
+    reasons.push(
+      `${explainIncome(income)} Expected 30-day income minus ${formatMoney(spendingReserveCents)} of planned spending is ${formatMoney(income.expected30DaysCents - spendingReserveCents)}. This is a cash-flow outlook, not additional money available today. Revisit contributions after pay arrives.`,
+    );
+  if (demo.sampleRothProfile)
+    reasons.push(
+      'This demo starts with an illustrative Roth profile for Alex. The income, filing status and IRA contributions are sample inputs, not inferred from Plaid. Edited values, if any, are used for this calculation.',
+    );
   if (budgetEstimate)
     reasons.push(
       `The starting budget uses ${budgetEstimate.transactionCount} posted checking outflows over ${budgetEstimate.historyDays} days. It takes the largest of the last 30 days (${formatMoney(budgetEstimate.recentOutflowsCents)}), the history scaled to 30 days (${formatMoney(budgetEstimate.monthlyAverageCents)}), and cautious upcoming monthly bills (${formatMoney(budgetEstimate.upcomingBillsCents)}), without adding them together. Transfers, debt payments and one-off purchases remain included; credits do not offset spending. The suggested buffer is seven days of estimated spending and the cash-reserve target is three months. These are adjustable starting points. Spending outside this account and savings earmarked elsewhere may be missing.`,
@@ -247,6 +257,13 @@ export function buildGrowthPlan(
       'Keep cash available for spending and your buffer before adding to savings or retirement.',
     );
   return {
+    ...(income?.streams.length
+      ? {
+          income,
+          expectedCashFlowCents:
+            income.expected30DaysCents - spendingReserveCents,
+        }
+      : {}),
     ...(budgetEstimate ? { budgetEstimate } : {}),
     status: blockers.length
       ? 'needs_review'

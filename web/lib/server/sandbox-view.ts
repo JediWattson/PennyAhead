@@ -102,6 +102,9 @@ export function sandboxForecast(
     corrections,
   );
   return {
+    ...(process.env.PENNYAHEAD_SANDBOX_SAMPLE_ROTH === 'true'
+      ? { sampleRothProfile: true }
+      : {}),
     clock: 'provider-observation',
     snapshotId: observation.id,
     scenario: 'shortfall',

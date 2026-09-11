@@ -48,6 +48,7 @@ type Message =
 const suggestions = [
   'How much can I save or invest?',
   'What are my balances?',
+  'When is my next paycheck?',
   'Why is my available balance lower?',
   'Show recent transactions',
   'Will my bills be covered?',
@@ -65,7 +66,10 @@ export function Dashboard({
 }) {
   const [demo, setDemo] = useState(initialDemo);
   const [growthInputs, setGrowthInputs] = useState<GrowthInputs>(() =>
-    initialGrowthInputs(initialDemo.snapshot.source),
+    initialGrowthInputs(
+      initialDemo.snapshot.source,
+      initialDemo.sampleRothProfile,
+    ),
   );
   const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
     enabled: true,
@@ -98,6 +102,7 @@ export function Dashboard({
   const chatVersion = useRef(0);
   const [draft, setDraft] = useState('');
   const conversationRef = useRef<HTMLDivElement>(null);
+  const assistantRef = useRef<HTMLElement>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +110,7 @@ export function Dashboard({
     {
       role: 'assistant',
       text: sandbox
-        ? 'Your Plaid Sandbox test accounts are connected. Ask about saving and investing, balances, forecasts, or recent activity. I start with a spending estimate from your transactions and adjustable savings targets; Roth eligibility details need your input. I use scripted replies; these are test records and no real money is connected.'
+        ? `Your Plaid Sandbox test accounts are connected. Ask about saving and investing, balances, forecasts, or recent activity. I start with a spending estimate from your transactions and adjustable savings targets. ${initialDemo.sampleRothProfile ? 'This demo uses Alex’s labeled sample Roth profile.' : 'Roth eligibility details need your input.'} I use scripted replies; these are test records and no real money is connected.`
         : 'Hi Alex. Let’s make room for your savings and retirement goals while protecting the money you need for spending. Ask me to explain your Save and invest plan, your balances, or upcoming bills. This demo uses synthetic accounts and a sample financial profile.',
     },
   ]);
@@ -114,6 +119,50 @@ export function Dashboard({
     const conversation = conversationRef.current;
     if (conversation) conversation.scrollTop = conversation.scrollHeight;
   }, [messages, busy]);
+
+  useEffect(() => {
+    const panel = assistantRef.current;
+    if (!panel) return;
+    const desktop = window.matchMedia('(min-width: 781px)');
+    let frame = 0;
+    const resize = () => {
+      frame = 0;
+      if (!desktop.matches) {
+        panel.style.removeProperty('--chat-panel-height');
+        return;
+      }
+      const top = Math.max(20, panel.getBoundingClientRect().top);
+      const height = `${Math.max(0, Math.floor(window.innerHeight - top - 20))}px`;
+      if (panel.style.getPropertyValue('--chat-panel-height') === height)
+        return;
+      const conversation = conversationRef.current;
+      const atBottom =
+        conversation &&
+        conversation.scrollHeight -
+          conversation.clientHeight -
+          conversation.scrollTop <
+          24;
+      panel.style.setProperty('--chat-panel-height', height);
+      if (conversation && atBottom)
+        conversation.scrollTop = conversation.scrollHeight;
+    };
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(resize);
+    };
+    const observer = new ResizeObserver(schedule);
+    if (panel.parentElement) observer.observe(panel.parentElement);
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    desktop.addEventListener('change', schedule);
+    resize();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+      desktop.removeEventListener('change', schedule);
+    };
+  }, []);
 
   const onSession = useCallback(
     (state: MonitorView) => {
@@ -287,21 +336,29 @@ export function Dashboard({
           {sandbox ? 'Plaid Sandbox' : 'Synthetic demo'}
         </span>
       </header>
-      <main id="main" className="workspace">
+      <main
+        id="main"
+        className={`workspace${sandbox ? ' sandbox-workspace' : ''}`}
+      >
         <div className="page-heading">
           <div>
             <p className="eyebrow">
               {sandbox ? 'YOUR MONEY, IN VIEW' : 'YOUR NEXT STEP, IN REACH'}
             </p>
-            <h1>
-              {sandbox ? 'Your accounts.' : 'A little saved.'}
-              <br /> {sandbox ? 'A little more clarity.' : 'A future built.'}
-            </h1>
-            <p className="intro">
-              {sandbox
-                ? 'Your connected test checking and savings, in one view.'
-                : 'Turn money left after spending into progress toward your savings and retirement goals.'}
-            </p>
+            {sandbox ? (
+              <h1 className="sr-only">Your finances</h1>
+            ) : (
+              <>
+                <h1>
+                  A little saved.
+                  <br /> A future built.
+                </h1>
+                <p className="intro">
+                  Turn money left after spending into progress toward your
+                  savings and retirement goals.
+                </p>
+              </>
+            )}
           </div>
         </div>
         {!sandbox && (
@@ -575,6 +632,7 @@ export function Dashboard({
             </TabsContent>
           </Tabs>
           <aside
+            ref={assistantRef}
             className="assistant-panel"
             aria-labelledby="assistant-heading"
           >

@@ -5,6 +5,7 @@ import type {
   ForecastReport,
   Transaction,
 } from '../contracts.ts';
+import { buildIncomeOutlook } from './income.ts';
 
 const DAY = 86400000;
 const isoDay = (value: string) => new Date(value).toISOString().slice(0, 10);
@@ -336,7 +337,25 @@ export function buildForecast(
               bills.some((bill) => bill.enabled && bill.uncertain)
             ? 'watch'
             : 'sufficient';
+  const income = buildIncomeOutlook(
+    transactions,
+    snapshot.asOf,
+    evaluatedAt,
+    status !== 'stale' && status !== 'incomplete',
+  );
+  let expectedIncome = 0;
+  for (const entry of days) {
+    const incoming = income.payments
+      .filter((payment) => payment.date === entry.date)
+      .reduce((total, payment) => total + payment.amountCents, 0);
+    expectedIncome += incoming;
+    Object.assign(entry, {
+      expectedIncomeCents: incoming,
+      balanceWithIncomeCents: money(entry.balanceCents + expectedIncome),
+    });
+  }
   return {
+    income,
     accountId,
     evaluatedAt,
     observedAt: new Date(Math.min(...observations)).toISOString(),

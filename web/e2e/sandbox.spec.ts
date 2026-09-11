@@ -12,6 +12,7 @@ import {
   explainGrowthPlan,
 } from '../lib/server/growth-plan.ts';
 import { initialGrowthInputs } from '../lib/growth-contracts.ts';
+import { weeklyIncomeTransactions } from '../scripts/weekly-income-fixture.ts';
 import type { DemoForecast } from '../lib/contracts.ts';
 
 async function sandboxFixture(): Promise<DemoForecast> {
@@ -263,6 +264,117 @@ test('Sandbox account selection shows savings history and follows refreshed acco
   ).toHaveAttribute('aria-pressed', 'true');
   await expect(activity).toContainText('Neighborhood Market');
   await expect(activity).not.toContainText('Savings interest');
+});
+
+test('weekly income appears in the plan, chart and matching chat, then pauses when the newest paycheck is missing', async ({
+  page,
+}) => {
+  const view = await sandboxFixture();
+  view.sampleRothProfile = true;
+  view.snapshot.accounts[0].availableCents = 1000000;
+  view.snapshot.accounts[0].currentCents = 1000000;
+  view.snapshot.transactions[0].availableBalanceEffect = 'included';
+  view.snapshot.transactions.push(
+    ...weeklyIncomeTransactions('2026-09-08').map((txn, index) => ({
+      id: `weekly-${index}`,
+      accountId: view.snapshot.accounts[0].id,
+      merchant: txn.description,
+      description: txn.description,
+      amountCents: -txn.amount * 100,
+      date: txn.date_posted,
+      status: 'posted' as const,
+    })),
+  );
+  const update = () => {
+    view.forecast = buildForecast(
+      view.snapshot,
+      view.snapshot.accounts[0].id,
+      DEMO_NOW,
+    );
+  };
+  update();
+  await page.route('**/api/sandbox', (route) => route.fulfill({ json: view }));
+  await page.route('**/api/sandbox/growth', (route) =>
+    route.fulfill({
+      json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
+    }),
+  );
+  await page.route('**/api/sandbox/assistant', async (route) => {
+    const input = route.request().postDataJSON();
+    const assistant = new MockAssistant(
+      { source: 'plaid_sandbox', getSnapshot: async () => view.snapshot },
+      undefined,
+      true,
+      view.forecast,
+      buildGrowthPlan(view, input.growth, 0),
+    );
+    await route.fulfill({
+      json: await assistant.reply(DEMO_OWNER_ID, input.message, view),
+    });
+  });
+  await page.goto('/sandbox');
+  await page.getByRole('tab', { name: 'Save & invest' }).click();
+  await expect(page.getByTestId('income-summary-30')).toContainText(
+    '$2,000.00',
+  );
+  await expect(page.getByTestId('growth-roth')).toHaveText('$250.00');
+  await page
+    .getByRole('button', { name: 'When is my next paycheck?', exact: true })
+    .click();
+  await expect(page.getByRole('log')).toContainText('$500.00 estimated weekly');
+  await expect(page.getByRole('log')).toContainText('2026-09-11');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
+  await expect(page.locator('.income-line')).toHaveCount(1);
+  await expect(page.getByTestId('income-summary-14')).toContainText(
+    '$1,000.00',
+  );
+  view.snapshot.transactions = view.snapshot.transactions.filter(
+    (txn) => txn.id !== 'weekly-0',
+  );
+  view.snapshotId = 'missing-paycheck-observation';
+  update();
+  await page.getByRole('tab', { name: 'Overview', exact: true }).click();
+  await page.getByRole('button', { name: 'Refresh Sandbox data' }).click();
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
+  await expect(page.getByTestId('income-summary-14')).toContainText(
+    'Review payday',
+  );
+  await expect(page.locator('.income-line')).toHaveCount(0);
+  await expect(page.getByRole('log')).toBeEmpty();
+});
+
+test('an operator-selected sample Roth profile is labeled, editable and restored on reset', async ({
+  page,
+}) => {
+  const view = await sandboxFixture();
+  view.sampleRothProfile = true;
+  view.snapshot.accounts[0].availableCents = 1000000;
+  view.snapshot.accounts[0].currentCents = 1000000;
+  view.snapshot.transactions[0].availableBalanceEffect = 'included';
+  view.forecast = buildForecast(
+    view.snapshot,
+    view.snapshot.accounts[0].id,
+    DEMO_NOW,
+  );
+  await page.route('**/api/sandbox', (route) => route.fulfill({ json: view }));
+  await page.route('**/api/sandbox/growth', (route) =>
+    route.fulfill({
+      json: buildGrowthPlan(view, route.request().postDataJSON().growth, 0),
+    }),
+  );
+  await page.goto('/sandbox');
+  await page.getByRole('tab', { name: 'Save & invest' }).click();
+  await expect(page.getByTestId('growth-sample-profile')).toHaveCount(0);
+  await expect(page.getByTestId('growth-roth')).toHaveText('$250.00');
+  await page.getByText('Edit plan assumptions', { exact: true }).click();
+  await expect(page.getByLabel('2026 eligible compensation ($)')).toHaveValue(
+    '60000.00',
+  );
+  await page.getByLabel('2026 filing status').selectOption('unknown');
+  await page.getByRole('button', { name: 'Update plan', exact: true }).click();
+  await expect(page.getByTestId('growth-roth')).toHaveText('$0.00');
+  await page.getByRole('button', { name: 'Reset plan assumptions' }).click();
+  await expect(page.getByTestId('growth-roth')).toHaveText('$250.00');
 });
 
 test('Sandbox savings planning estimates automatically, accepts overrides, refreshes with displayed balances and handles expired observations', async ({

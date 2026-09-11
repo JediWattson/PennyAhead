@@ -33,6 +33,8 @@ The suggested checking buffer is seven days of estimated spending; the suggested
 
 The plan and chat use the same backend calculation. This change does not add an LLM budget-estimation call or change the separate 14-day bill chart.
 
+For an explicitly selected Sandbox surplus demonstration, `PENNYAHEAD_SANDBOX_SAMPLE_ROTH=true` starts with Alex's labeled, editable sample Roth profile. The [surplus seed](PLAID.md#seeded-demo-activity) uses $1,500 available checking and retains the existing transaction history. This opt-in is separate from income inference: ordinary Sandbox setups still leave Roth details unconfirmed, and no future paychecks are included in available cash. A detected weekly-pay pattern now supplies a separate 30-day income and net-cash-flow outlook; the agent can explain that outlook without allocating unreceived pay.
+
 ## Roth scope and sources
 
 The planner supports ordinary direct Roth contributions for **tax year 2026**, using entered compensation and contributions across all traditional and Roth IRAs. The general combined limit is $7,500, or $8,600 at age 50+, capped by eligible compensation. Income at or above the start of the applicable phase-out produces a review requirement; the planner does not calculate reduced limits. Above the upper threshold, no direct Roth amount is proposed. Married filing separately, unknown details and cases requiring spousal eligibility also require review.

@@ -247,6 +247,7 @@ export class PlaidSandboxProvider implements BankDataProvider {
             id: t.transaction_id,
             accountId: t.account_id,
             merchant: t.merchant_name || t.name || 'Unnamed transaction',
+            description: t.name,
             amountCents: -plaidCents(t.amount),
             date: `${t.date}T00:00:00.000Z`,
             status: t.pending ? 'pending' : 'posted',

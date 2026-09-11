@@ -15,6 +15,8 @@ export interface Transaction {
   id: string;
   accountId: string;
   merchant: string;
+  /** Provider transaction name before merchant-name normalization. */
+  description?: string;
   /** Negative = debit; positive = credit. */
   amountCents: number;
   date: string;
@@ -119,8 +121,28 @@ export interface ForecastDay {
   balanceCents: number;
   cautiousBalanceCents: number;
   billIds: string[];
+  expectedIncomeCents?: number;
+  balanceWithIncomeCents?: number;
+}
+export interface IncomeStream {
+  id: string;
+  name: string;
+  amountCents: number;
+  minimumCents: number;
+  nextDate: string;
+  evidenceIds: string[];
+  status: 'estimated' | 'review';
+}
+export interface IncomeOutlook {
+  status: 'estimated' | 'none' | 'review';
+  streams: IncomeStream[];
+  payments: { date: string; amountCents: number; streamId: string }[];
+  expected14DaysCents: number;
+  expected30DaysCents: number;
+  explanation: string;
 }
 export interface ForecastReport {
+  income?: IncomeOutlook;
   accountId: string;
   evaluatedAt: string;
   observedAt: string;
@@ -139,6 +161,8 @@ export interface ForecastReport {
   warnings: string[];
 }
 export interface DemoForecast extends DemoOptions {
+  /** Explicit operator-selected sample profile, never derived from bank transactions. */
+  sampleRothProfile?: boolean;
   clock: 'fixed-demo' | 'provider-observation';
   /** Identifies an immutable, expiring Sandbox observation. Never a bank token. */
   snapshotId?: string;

@@ -11,6 +11,7 @@ import type {
 } from '../contracts.ts';
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
+import { explainIncome } from './income.ts';
 import { FixtureBankProvider, DEMO_NOW } from './fixtures.ts';
 import { buildFundingPlan } from './funding.ts';
 import {
@@ -123,7 +124,7 @@ export class MockAssistant implements Assistant {
         ...base,
         asOf: snapshot.asOf,
         reads: ['get_forecast', 'get_accounts'],
-        text: `Using the displayed Plaid Sandbox observation: ${summary}\n\n${explainBillSuggestion(buildBillSuggestion(snapshot, forecast))}${forecast.warnings.length ? `\n\n${forecast.warnings.join(' ')}` : ''}`,
+        text: `Using the displayed Plaid Sandbox observation: ${summary}${forecast.income?.streams.length ? `\n\n${explainIncome(forecast.income)} The bill protection check keeps the no-new-pay baseline.` : ''}\n\n${explainBillSuggestion(buildBillSuggestion(snapshot, forecast))}${forecast.warnings.length ? `\n\n${forecast.warnings.join(' ')}` : ''}`,
       };
     }
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
@@ -136,6 +137,31 @@ export class MockAssistant implements Assistant {
               )
             ? 'Chat cannot authorize contributions. No transfer was created. Savings and Roth amounts are planning previews; contribution execution is not connected.'
             : 'Chat cannot authorize money movement. No transfer was created. Review the exact amount and accounts in the approval card to create a clearly labeled local simulation.',
+      };
+    }
+    if (
+      /\b(income|paycheck|paychecks|payday|paydays|payroll|salary)\b/.test(
+        query,
+      ) &&
+      !/\b(roth|ira|invest|retirement|save|goals)\b/.test(query)
+    ) {
+      const snapshot = await this.bank.getSnapshot(ownerId);
+      const checking = snapshot.accounts.find(
+        (account) => account.kind === 'checking',
+      );
+      if (!checking) throw new Error('Checking account unavailable');
+      const forecast =
+        this.observedForecast ??
+        buildForecast(
+          snapshot,
+          checking.id,
+          sandbox ? new Date().toISOString() : DEMO_NOW,
+        );
+      return {
+        ...base,
+        asOf: snapshot.asOf,
+        reads: ['get_forecast'],
+        text: `Using ${sandbox ? 'Plaid Sandbox' : 'synthetic'} transaction history: ${forecast.income ? explainIncome(forecast.income) : 'No weekly income outlook is available for this observation.'} No money has moved.`,
       };
     }
     if (

@@ -3,6 +3,7 @@ import { useId, useState, type SubmitEvent } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Checkbox } from './ui/checkbox';
+import { IncomeSummary } from './income-summary';
 import type {
   BillCorrection,
   DemoForecast,
@@ -106,6 +107,7 @@ export function ForecastPanel({
   change: (options: DemoOptions) => Promise<boolean>;
 }) {
   const report = demo.forecast;
+  const withIncome = (report.income?.expected14DaysCents ?? 0) > 0;
   const uncertain = report.bills.some((bill) => bill.enabled && bill.uncertain);
   const lastDay = report.days[report.days.length - 1];
   const noBillCharges =
@@ -141,6 +143,7 @@ export function ForecastPanel({
   const max = Math.max(
     report.startingCents,
     ...report.days.map((day) => day.balanceCents),
+    ...report.days.map((day) => day.balanceWithIncomeCents ?? day.balanceCents),
     1000,
   );
   const min = Math.min(
@@ -181,7 +184,7 @@ export function ForecastPanel({
           <h3 data-testid="forecast-title">{title}</h3>
           <p>
             {reliable && noBillCharges && report.shortageCents === 0
-              ? `Checking stays at ${formatMoney(report.startingCents)} in this projection because no additional bill deductions are expected through ${dateLabel(lastDay.date)}.${nextBill ? ` The next detected bill is ${nextBill.merchant}, estimated for ${dateLabel(nextBill.nextDate)}.` : ''} Everyday spending is not included.`
+              ? `${withIncome ? 'The bill-only projection stays' : 'Checking stays'} at ${formatMoney(report.startingCents)} in this projection because no additional bill deductions are expected through ${dateLabel(lastDay.date)}.${nextBill ? ` The next detected bill is ${nextBill.merchant}, estimated for ${dateLabel(nextBill.nextDate)}.` : ''} Everyday spending is not included.`
               : report.firstShortfall
                 ? `First projected below zero: ${dateLabel(report.firstShortfall)}.`
                 : report.status === 'watch' &&
@@ -204,7 +207,9 @@ export function ForecastPanel({
             <strong>{formatMoney(report.scheduledCents)}</strong>
           </div>
           <div>
-            <span>Estimated ending</span>
+            <span>
+              {withIncome ? 'Ending before new pay' : 'Estimated ending'}
+            </span>
             <strong data-testid="forecast-ending">
               {formatMoney(report.endingCents)}
             </strong>
@@ -215,7 +220,7 @@ export function ForecastPanel({
           className="balance-chart"
           viewBox="0 0 580 182"
           role="img"
-          aria-label={`14-day estimated checking balance, ending at ${formatMoney(report.endingCents)}. Daily values are available below.`}
+          aria-label={`14-day estimated checking balance before new pay, ending at ${formatMoney(report.endingCents)}.${withIncome ? ` With estimated pay, ending at ${formatMoney(lastDay.balanceWithIncomeCents!)}.` : ''} Daily values are available below.`}
         >
           <line x1="24" x2="556" y1={y(0)} y2={y(0)} className="zero-line" />
           <text x="24" y={y(0) - 6}>
@@ -225,6 +230,17 @@ export function ForecastPanel({
             <polyline points={line(true)} className="cautious-line" />
           )}
           <polyline points={line(false)} className="balance-line" />
+          {withIncome && (
+            <polyline
+              className="income-line"
+              points={report.days
+                .map(
+                  (day, index) =>
+                    `${24 + index * (532 / 13)},${y(day.balanceWithIncomeCents ?? day.balanceCents)}`,
+                )
+                .join(' ')}
+            />
+          )}
           <text x="24" y="178">
             {dateLabel(report.days[0].date)}
           </text>
@@ -233,6 +249,13 @@ export function ForecastPanel({
           </text>
         </svg>
         {/* oxlint-enable jsx-a11y/prefer-tag-over-role */}
+        {withIncome && (
+          <p className="chart-legend" data-testid="income-chart-caption">
+            Blue: if estimated pay arrives, ending at{' '}
+            {formatMoney(lastDay.balanceWithIncomeCents!)}. Green: bills before
+            any new pay.
+          </p>
+        )}
         {reliable && noBillCharges && report.shortageCents === 0 && (
           <p className="chart-legend">
             No bill deductions projected in this window
@@ -240,8 +263,8 @@ export function ForecastPanel({
         )}
         {uncertain && !noBillCharges && (
           <p className="chart-legend">
-            Solid: expected timing · Dashed: earlier dates and higher observed
-            amounts
+            Green: expected bill timing · Amber: earlier dates and higher
+            observed amounts
           </p>
         )}
         <p className="freshness">
@@ -272,6 +295,12 @@ export function ForecastPanel({
                   <th scope="col">Date</th>
                   <th scope="col">Expected</th>
                   <th scope="col">Cautious</th>
+                  {withIncome && (
+                    <>
+                      <th scope="col">Expected pay</th>
+                      <th scope="col">With pay</th>
+                    </>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -280,6 +309,16 @@ export function ForecastPanel({
                     <td>{dateLabel(day.date)}</td>
                     <td>{formatMoney(day.balanceCents)}</td>
                     <td>{formatMoney(day.cautiousBalanceCents)}</td>
+                    {withIncome && (
+                      <>
+                        <td>{formatMoney(day.expectedIncomeCents ?? 0)}</td>
+                        <td>
+                          {formatMoney(
+                            day.balanceWithIncomeCents ?? day.balanceCents,
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -287,10 +326,11 @@ export function ForecastPanel({
           </div>
         </details>
         <p className="forecast-limits">
-          Only detected monthly bills are included. Unrecorded spending and
-          unconfirmed income are excluded. Estimates do not guarantee a payment
-          date or a covered bill.
+          The bill protection check excludes future income. The blue outlook,
+          when shown, adds estimated weekly pay. Unrecorded spending is
+          excluded. Estimates do not guarantee a payday or a covered bill.
         </p>
+        <IncomeSummary income={report.income} horizonDays={14} />
       </div>
       <div className="section-heading upcoming-heading">
         <h2>Upcoming bills</h2>
