@@ -144,6 +144,17 @@ export interface DemoForecast extends DemoOptions {
   snapshotId?: string;
   snapshot: BankSnapshot;
   forecast: ForecastReport;
+  billSuggestion?: BillSuggestion;
+}
+export interface BillSuggestion {
+  status: 'consider_top_up' | 'covered' | 'review' | 'other_options';
+  title: string;
+  explanation: string;
+  shortageCents: number;
+  suggestedCents: number;
+  sourceAccountId: string | null;
+  remainingSavingsCents: number | null;
+  neededBefore: string | null;
 }
 export interface Assistant {
   reply(

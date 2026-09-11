@@ -11,7 +11,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 import type { DemoForecast } from '../lib/contracts';
 import {
-  DEMO_GROWTH_INPUTS,
+  initialGrowthInputs,
   type GrowthInputs,
   type GrowthPlan,
 } from '../lib/growth-contracts';
@@ -23,11 +23,13 @@ function MoneyField({
   label,
   value,
   hint,
+  disabled,
 }: {
   name: string;
   label: string;
   value: number;
   hint?: string;
+  disabled?: boolean;
 }) {
   return (
     <label className="growth-field" htmlFor={`growth-${name}`}>
@@ -40,6 +42,7 @@ function MoneyField({
         max="1000000"
         step="0.01"
         required
+        disabled={disabled}
         defaultValue={(value / 100).toFixed(2)}
       />
       {hint && <small>{hint}</small>}
@@ -64,6 +67,7 @@ export function GrowthPanel({
   onChange: (inputs: GrowthInputs) => void;
   onAsk: () => void;
 }) {
+  const sandbox = demo.snapshot.source === 'plaid_sandbox';
   const [retry, setRetry] = useState(0);
   const [result, setResult] = useState<{
     key: string;
@@ -71,38 +75,70 @@ export function GrowthPanel({
     error?: string;
   } | null>(null);
   const [formError, setFormError] = useState('');
+  const [budgetMode, setBudgetMode] = useState(inputs.budgetMode ?? 'manual');
   const desired = JSON.stringify({
     context: growthContext(demo, savingsMinimumCents),
+    sandbox,
+    snapshotId: demo.snapshotId,
+    corrections: demo.corrections,
     inputs,
     sessionId,
     retry,
   });
   const current = result?.key === desired ? result : null;
   const plan = current?.plan;
+  const estimate = plan?.budgetEstimate;
+  const formInputs = estimate
+    ? {
+        ...inputs,
+        spendingCents: estimate.spendingCents,
+        checkingBufferCents: estimate.checkingBufferCents,
+        emergencyTargetCents: estimate.emergencyTargetCents,
+      }
+    : inputs;
 
   useEffect(() => {
     const request = JSON.parse(desired) as {
       context: string;
+      sandbox: boolean;
+      snapshotId?: string;
+      corrections: DemoForecast['corrections'];
       inputs: GrowthInputs;
       sessionId: string | null;
     };
-    if (!request.sessionId) return;
+    if (request.sandbox ? !request.snapshotId : !request.sessionId) return;
     const controller = new AbortController();
     let stopped = false;
     void (async () => {
       try {
-        const response = await fetch('/api/growth', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${request.sessionId}`,
+        const response = await fetch(
+          request.sandbox ? '/api/sandbox/growth' : '/api/growth',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(!request.sandbox
+                ? { Authorization: `Bearer ${request.sessionId}` }
+                : {}),
+            },
+            body: JSON.stringify(
+              request.sandbox
+                ? {
+                    snapshotId: request.snapshotId,
+                    corrections: request.corrections,
+                    growth: request.inputs,
+                  }
+                : {
+                    context: request.context,
+                    inputs: request.inputs,
+                  },
+            ),
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(10000),
+            ]),
           },
-          body: JSON.stringify({
-            context: request.context,
-            inputs: request.inputs,
-          }),
-          signal: controller.signal,
-        });
+        );
         const body = await response.json();
         if (!response.ok)
           throw new Error(body.error ?? 'Unable to calculate the plan.');
@@ -137,12 +173,24 @@ export function GrowthPanel({
     };
     try {
       const next: GrowthInputs = {
-        spendingCents: dollars('spending'),
+        ...(sandbox ? { budgetMode } : {}),
+        spendingCents:
+          sandbox && budgetMode === 'estimated'
+            ? inputs.spendingCents
+            : dollars('spending'),
         extraCommitmentsCents: dollars('extra'),
-        checkingBufferCents: dollars('buffer'),
-        emergencyTargetCents: dollars('target'),
+        checkingBufferCents:
+          sandbox && budgetMode === 'estimated'
+            ? inputs.checkingBufferCents
+            : dollars('buffer'),
+        emergencyTargetCents:
+          sandbox && budgetMode === 'estimated'
+            ? inputs.emergencyTargetCents
+            : dollars('target'),
         earmarkedSavingsCents: dollars('earmarked'),
-        budgetReviewed: form.has('budgetReviewed'),
+        budgetReviewed: sandbox
+          ? budgetMode === 'manual'
+          : form.has('budgetReviewed'),
         retirementPrioritiesReviewed: form.has('prioritiesReviewed'),
         hysaApyBasisPoints: dollars('apy'),
         rothGoalCents: dollars('rothGoal'),
@@ -189,7 +237,7 @@ export function GrowthPanel({
         </div>
         {!plan && !current?.error && (
           <output className="growth-loading">
-            {sessionId
+            {sessionId || sandbox
               ? 'Checking your cash reserves and contribution room…'
               : 'Preparing your private demo plan…'}
           </output>
@@ -216,11 +264,39 @@ export function GrowthPanel({
             </h3>
             <p className="growth-subtitle">
               {plan.status === 'ready'
-                ? `${formatMoney(plan.availableForGoalsCents)} is available after the spending and buffer you entered. Start with your cash reserve, then make room for retirement.`
+                ? `${formatMoney(plan.availableForGoalsCents)} is ${estimate ? 'potentially ' : ''}available after ${estimate ? 'estimated spending and the suggested buffer' : 'the spending and buffer you entered'}. Start with your cash reserve, then make room for retirement.`
                 : plan.status === 'cash_first'
-                  ? `${formatMoney(plan.cashGapCents)} more is needed in checking to cover the entered spending reserve and buffer. New contributions can wait.`
+                  ? `${formatMoney(plan.cashGapCents)} more is needed in checking to cover the ${estimate ? 'estimated' : 'entered'} spending reserve and buffer. New contributions can wait.`
                   : 'Complete the missing information before using a savings or retirement amount.'}
             </p>
+            {estimate && (
+              <div className="growth-estimate" data-testid="growth-estimate">
+                <strong>A starting plan from your transactions</strong>
+                <p>
+                  Based on {estimate.transactionCount} posted checking outflows
+                  across {estimate.historyDays} days.
+                </p>
+                <dl>
+                  <div>
+                    <dt>Next 30 days · estimated spending</dt>
+                    <dd>{formatMoney(plan.spendingReserveCents)}</dd>
+                  </div>
+                  <div>
+                    <dt>Suggested checking buffer · 7 days</dt>
+                    <dd>{formatMoney(plan.checkingBufferCents)}</dd>
+                  </div>
+                  <div>
+                    <dt>Suggested cash reserve · 3 months</dt>
+                    <dd>{formatMoney(plan.emergencyTargetCents)}</dd>
+                  </div>
+                </dl>
+                <p>
+                  Includes transfers and one-off purchases. Other accounts or
+                  commitments may be missing. Adjust the estimates below as
+                  needed.
+                </p>
+              </div>
+            )}
             <div className="growth-allocations">
               <article>
                 <span className="growth-goal-icon">
@@ -327,9 +403,11 @@ export function GrowthPanel({
           </>
         )}
         <p className="growth-disclosure">
-          Alex’s illustrative profile · Synthetic money. This previews a
-          possible allocation; no account is opened and no money is moved.
-          Assumptions reset when you reload.
+          {sandbox
+            ? 'Plaid Sandbox balances and transactions · Spending is estimated from history unless you enter your own budget. Suggested buffers and reserve targets are adjustable. Roth eligibility and IRA contributions need your details.'
+            : 'Alex’s illustrative profile · Synthetic money.'}{' '}
+          This previews a possible allocation; no account is opened and no money
+          is moved. Assumptions reset when you reload.
         </p>
       </div>
       <details className="growth-settings">
@@ -337,19 +415,35 @@ export function GrowthPanel({
           <SlidersHorizontal size={16} />
           Edit plan assumptions
         </summary>
-        <form onSubmit={update} key={JSON.stringify(inputs)}>
+        <form onSubmit={update} key={JSON.stringify(formInputs)}>
           <fieldset disabled={busy}>
             <legend>Protect your next 30 days</legend>
             <p>
-              Include rent, bills, everyday spending and minimum debt payments.
-              The detected-bill forecast covers only 14 days; the larger
-              spending reserve is entered here.
+              {sandbox
+                ? 'Start with the transaction estimate, or use your own amounts. Add any commitments and savings earmarks the account history cannot show.'
+                : 'Include rent, bills, everyday spending and minimum debt payments. The detected-bill forecast covers only 14 days; the larger spending reserve is entered here.'}
             </p>
+            {sandbox && (
+              <label className="growth-field" htmlFor="growth-budgetMode">
+                <span>Budget approach</span>
+                <select
+                  id="growth-budgetMode"
+                  value={budgetMode}
+                  onChange={(event) =>
+                    setBudgetMode(event.target.value as 'estimated' | 'manual')
+                  }
+                >
+                  <option value="estimated">Estimate from transactions</option>
+                  <option value="manual">Use my own amounts</option>
+                </select>
+              </label>
+            )}
             <div className="growth-fields">
               <MoneyField
                 name="spending"
                 label="All spending for the next 30 days ($)"
-                value={inputs.spendingCents}
+                value={formInputs.spendingCents}
+                disabled={sandbox && budgetMode === 'estimated'}
               />
               <MoneyField
                 name="extra"
@@ -359,12 +453,14 @@ export function GrowthPanel({
               <MoneyField
                 name="buffer"
                 label="Checking buffer ($)"
-                value={inputs.checkingBufferCents}
+                value={formInputs.checkingBufferCents}
+                disabled={sandbox && budgetMode === 'estimated'}
               />
               <MoneyField
                 name="target"
                 label="Cash reserve target ($)"
-                value={inputs.emergencyTargetCents}
+                value={formInputs.emergencyTargetCents}
+                disabled={sandbox && budgetMode === 'estimated'}
               />
               <MoneyField
                 name="earmarked"
@@ -385,20 +481,24 @@ export function GrowthPanel({
                 />
               </label>
             </div>
-            <p className="growth-hint">
-              Your existing protected savings minimum is{' '}
-              {formatMoney(savingsMinimumCents)}. This plan preserves at least
-              that target.
-            </p>
-            <label className="growth-check">
-              <input
-                type="checkbox"
-                name="budgetReviewed"
-                defaultChecked={inputs.budgetReviewed}
-              />
-              The demo budget includes spending and commitments for the full 30
-              days.
-            </label>
+            {savingsMinimumCents > 0 && (
+              <p className="growth-hint">
+                Your existing protected savings minimum is{' '}
+                {formatMoney(savingsMinimumCents)}. This plan preserves at least
+                that target.
+              </p>
+            )}
+            {!sandbox && (
+              <label className="growth-check">
+                <input
+                  type="checkbox"
+                  name="budgetReviewed"
+                  defaultChecked={inputs.budgetReviewed}
+                />
+                The demo budget includes spending and commitments for the full
+                30 days.
+              </label>
+            )}
           </fieldset>
           <fieldset disabled={busy}>
             <legend>Plan a Roth contribution</legend>
@@ -497,7 +597,8 @@ export function GrowthPanel({
               disabled={busy}
               onClick={() => {
                 setFormError('');
-                onChange(structuredClone(DEMO_GROWTH_INPUTS));
+                setBudgetMode(sandbox ? 'estimated' : 'manual');
+                onChange(initialGrowthInputs(demo.snapshot.source));
                 setRetry((value) => value + 1);
               }}
             >

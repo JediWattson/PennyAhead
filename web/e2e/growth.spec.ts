@@ -4,6 +4,7 @@ test('the main experience leads with savings and retirement and chat explains th
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'A little saved. A future built.' }),
   ).toBeVisible();
@@ -34,6 +35,7 @@ test('edited goals and Roth review requirements update the plan and clear old ex
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
   await expect(page.getByTestId('growth-title')).toContainText('$400.00');
   await page
     .getByRole('button', { name: 'Explain my savings and Roth plan' })
@@ -68,6 +70,7 @@ test('failed calculations hide old suggestions and recover through retry', async
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
   await expect(page.getByTestId('growth-title')).toContainText('$400.00');
   await page.route('**/api/growth', (route) =>
     route.fulfill({ status: 500, json: { error: 'Planner unavailable.' } }),
@@ -88,6 +91,7 @@ test('late calculations cannot overwrite a newer plan and stale balances suppres
   page,
 }) => {
   await page.goto('/');
+  await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
   await expect(page.getByTestId('growth-title')).toContainText('$400.00');
   let release: (() => void) | undefined;
   let seen: (() => void) | undefined;
@@ -130,6 +134,7 @@ test('the planner and its inputs remain readable on mobile and desktop', async (
   ]) {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    await page.getByRole('tab', { name: 'Save & invest', exact: true }).click();
     await expect(page.getByTestId('growth-title')).toContainText('$400.00');
     expect(
       await page.evaluate(

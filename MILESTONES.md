@@ -68,7 +68,8 @@
 
 **Target: September 11. Depends on M3 and provider sandbox access.**
 
-- [ ] Connect the transfer flow to Dwolla's sandbox.
+- [x] Offer read-only bill funding suggestions and matching scripted explanations on Plaid Sandbox data, with no transfer-provider dependency.
+- [ ] Optional future execution: connect the transfer flow to Dwolla's sandbox.
 - [x] Bind approval to exact accounts and amount.
 - [x] Enforce account ownership, available funds, and limits in backend code.
 - [x] Prevent duplicates from repeated clicks, retries, and overlapping monitor runs.

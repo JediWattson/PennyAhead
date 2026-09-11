@@ -1,4 +1,8 @@
+import type { DataSource } from './contracts.ts';
+
 export interface GrowthInputs {
+  /** Omitted on older/manual profiles. Estimates are always computed on the server. */
+  budgetMode?: 'estimated' | 'manual';
   /** All bills, living costs and minimum debt payments for the next 30 days. */
   spendingCents: number;
   extraCommitmentsCents: number;
@@ -35,8 +39,9 @@ export interface RothRoom {
 }
 
 export interface GrowthPlan {
+  budgetEstimate?: BudgetEstimate;
   status: 'ready' | 'cash_first' | 'needs_review';
-  source: 'synthetic';
+  source: DataSource;
   asOf: string;
   horizonDays: 30;
   checkingAvailableCents: number;
@@ -55,6 +60,18 @@ export interface GrowthPlan {
   roth: RothRoom;
   reasons: string[];
   blockers: string[];
+}
+
+export interface BudgetEstimate {
+  historyDays: number;
+  transactionCount: number;
+  recentOutflowsCents: number;
+  monthlyAverageCents: number;
+  upcomingBillsCents: number;
+  spendingCents: number;
+  checkingBufferCents: number;
+  emergencyTargetCents: number;
+  usable: boolean;
 }
 
 /** Public illustrative inputs for Alex, never inferred from the user's finances. */
@@ -79,3 +96,25 @@ export const DEMO_GROWTH_INPUTS: GrowthInputs = {
     detailsReviewed: true,
   },
 };
+
+export function initialGrowthInputs(source: DataSource): GrowthInputs {
+  const inputs = structuredClone(DEMO_GROWTH_INPUTS);
+  if (source === 'plaid_sandbox') {
+    inputs.budgetMode = 'estimated';
+    inputs.spendingCents = 0;
+    inputs.checkingBufferCents = 0;
+    inputs.emergencyTargetCents = 0;
+    inputs.budgetReviewed = false;
+    inputs.retirementPrioritiesReviewed = false;
+    inputs.roth = {
+      ...inputs.roth,
+      filingStatus: 'unknown',
+      compensationCents: 0,
+      modifiedAgiCents: 0,
+      traditionalContributionsCents: 0,
+      rothContributionsCents: 0,
+      detailsReviewed: false,
+    };
+  }
+  return inputs;
+}

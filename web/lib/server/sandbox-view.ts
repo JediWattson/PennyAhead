@@ -6,7 +6,9 @@ import type {
   DemoForecast,
 } from '../contracts.ts';
 import { buildForecast } from './forecast.ts';
+import { buildBillSuggestion } from './bill-suggestion.ts';
 import { parseDemoOptions } from './demo-forecast.ts';
+import { parseGrowthInputs } from './growth-plan.ts';
 import {
   configuredPlaidProvider,
   plaidSandboxEnabled,
@@ -93,18 +95,20 @@ export function sandboxForecast(
     (a) => a.kind === 'checking',
   );
   if (!checking) throw new SandboxError('CHECKING_UNAVAILABLE');
+  const forecast = buildForecast(
+    observation.snapshot,
+    checking.id,
+    observation.evaluatedAt,
+    corrections,
+  );
   return {
     clock: 'provider-observation',
     snapshotId: observation.id,
     scenario: 'shortfall',
     corrections,
     snapshot: observation.snapshot,
-    forecast: buildForecast(
-      observation.snapshot,
-      checking.id,
-      observation.evaluatedAt,
-      corrections,
-    ),
+    forecast,
+    billSuggestion: buildBillSuggestion(observation.snapshot, forecast),
   };
 }
 export function parseSandboxInput(
@@ -144,21 +148,23 @@ export function parseSandboxInput(
 export function sandboxErrorResponse(error: unknown): Response {
   const code = error instanceof SandboxError ? error.code : 'UNAVAILABLE';
   const message =
-    code === 'SNAPSHOT_EXPIRED'
-      ? 'This observation expired. Refresh Sandbox data before continuing.'
-      : code === 'NOT_CONFIGURED'
-        ? 'Plaid Sandbox is not enabled on this server.'
-        : code === 'RECONNECT_REQUIRED'
-          ? 'The test bank connection needs to be renewed in Plaid Sandbox.'
-          : code === 'BALANCE_UNAVAILABLE'
-            ? 'Plaid did not return a usable balance. No replacement balance or forecast was invented.'
-            : code === 'HISTORY_LOADING'
-              ? 'Plaid is still preparing transaction history. Refresh again shortly.'
-              : code === 'INVALID_INPUT'
-                ? 'Use this observation and valid corrections for its detected bills.'
-                : code === 'RETRY_LATER'
-                  ? 'The Sandbox read is temporarily unavailable. Try again shortly.'
-                  : 'Plaid Sandbox could not be read. Try refreshing again shortly.';
+    code === 'INVALID_PLAN'
+      ? 'Review the plan amounts and 2026 Roth details, then try again.'
+      : code === 'SNAPSHOT_EXPIRED'
+        ? 'This observation expired. Refresh Sandbox data before continuing.'
+        : code === 'NOT_CONFIGURED'
+          ? 'Plaid Sandbox is not enabled on this server.'
+          : code === 'RECONNECT_REQUIRED'
+            ? 'The test bank connection needs to be renewed in Plaid Sandbox.'
+            : code === 'BALANCE_UNAVAILABLE'
+              ? 'Plaid did not return a usable balance. No replacement balance or forecast was invented.'
+              : code === 'HISTORY_LOADING'
+                ? 'Plaid is still preparing transaction history. Refresh again shortly.'
+                : code === 'INVALID_INPUT'
+                  ? 'Use this observation and valid corrections for its detected bills.'
+                  : code === 'RETRY_LATER'
+                    ? 'The Sandbox read is temporarily unavailable. Try again shortly.'
+                    : 'Plaid Sandbox could not be read. Try refreshing again shortly.';
   return Response.json(
     { error: message },
     {
@@ -166,4 +172,17 @@ export function sandboxErrorResponse(error: unknown): Response {
       headers: { 'Cache-Control': 'no-store' },
     },
   );
+}
+
+/** Accept plan assumptions, never client-supplied balances or account IDs. */
+export function parseSandboxGrowthInput(input: unknown, withMessage = false) {
+  if (!input || typeof input !== 'object' || Array.isArray(input))
+    throw new SandboxError('INVALID_INPUT', 400);
+  const { growth, ...context } = input as Record<string, unknown>;
+  const parsed = parseSandboxInput(context, withMessage);
+  try {
+    return { ...parsed, growth: parseGrowthInputs(growth) };
+  } catch {
+    throw new SandboxError('INVALID_PLAN', 400);
+  }
 }

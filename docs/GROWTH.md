@@ -4,7 +4,7 @@
 
 PennyAhead helps people turn available cash into progress toward savings and retirement goals. Its central question is: **What can I put toward my goals while keeping enough money available for spending?** Bill detection and shortage protection support that decision. They remain part of the product and the demonstration.
 
-The first flow is a synthetic, explainable allocation preview. It opens on the **Save and invest** scenario, offers editable assumptions, calculates a cash-reserve contribution and a Roth IRA contribution, and lets the assistant explain the same backend result. It does not open an account, select an investment, or execute these contributions. Existing bill-funding simulations are separate.
+The **Save & invest** tab provides an explainable allocation preview for both the synthetic demo and Plaid Sandbox balances. The synthetic example uses the **Save and invest** scenario, offers editable assumptions, calculates a cash-reserve contribution and a Roth IRA contribution, and lets the assistant explain the same backend result. It does not open an account, select an investment, or execute these contributions. Existing bill-funding simulations are separate.
 
 ## Repeatable example
 
@@ -16,12 +16,22 @@ The sample Roth profile is age 30, single, $60,000 eligible compensation and mod
 
 - Use the current session's server-loaded synthetic balances, including existing simulated transfer reservations and settlement.
 - Start from the lower of reported available checking and the forecast's reconciled starting balance. Pending income is never added; unresolved pending debits are reserved by the forecast.
-- Reserve the larger of the entered full 30-day spending/extra-commitment total and the cautious detected commitments. The 30-day budget already includes bills, so the bill amount is not added a second time. This is a user-entered spending reserve, not a newly implemented 30-day transaction forecast.
+- Reserve the larger of the entered full 30-day spending/extra-commitment total and the cautious detected commitments. The 30-day budget already includes bills, so the bill amount is not added a second time. This is a spending reserve, using entered amounts or the transaction-based estimate described below; the daily bill chart remains a separate 14-day forecast.
 - Preserve the entered checking buffer. Only cash above these reserves can be allocated. No existing savings is withdrawn to fund a Roth contribution, and no future paycheck is assumed.
 - Evaluate savings freshness and its own detected commitments. Subtract savings earmarked for other goals before counting the rest toward the cash reserve. The effective reserve target is at least the existing monitoring savings minimum.
 - Allocate surplus toward the remaining cash-reserve gap first. Then limit a Roth proposal to the remaining surplus, the user's entered contribution goal for this plan, and modeled remaining IRA room. Keep any unused amount in checking.
-- Missing budget review, stale balances or unreconciled coverage suppress all suggestions. Missing retirement details or unreviewed debt/workplace-match priorities suppress the Roth amount while preserving an otherwise valid savings preview.
+- Manual synthetic profiles require budget review. The Sandbox starts from automatic estimates without a budget checkbox; short history, stale balances or unreconciled coverage still suppress allocations. Missing retirement details or unreviewed debt/workplace-match priorities suppress only the Roth amount while preserving an otherwise valid savings preview.
 - Calculations use integer cents. The illustrative APY applies only to the proposed new savings deposit for one unchanged year, before taxes/fees. It is not a bank quote, a product recommendation, or an investment-return forecast.
+
+## Transaction-based starting budget
+
+Plaid Sandbox defaults to a server-calculated spending estimate from the displayed observation. The estimate uses up to 90 days of posted checking outflows and requires at least 30 days of history. It chooses the largest of the latest 30 days of outflows, all observed outflows scaled to 30 days, and cautious detected bills due within the next 30 days. These amounts are compared, not added. Bill corrections apply to the upcoming-bill floor. Historical debits remain in the cash-outflow estimate even if a bill is disabled.
+
+The estimator deduplicates provider records, excludes future/pending transactions and other accounts, and never subtracts income or refunds from spending. Transfers, debt payments and one-off purchases remain in outflows because the current feed does not establish which can safely be excluded. This conservative starting estimate may overstate ongoing spending and may miss obligations outside the linked checking account. Its evidence count and calculation are visible.
+
+The suggested checking buffer is seven days of estimated spending; the suggested reserve target is three months. These are editable product heuristics, not inferred preferences or a universal recommendation. The [CFPB emergency-fund guide](https://www.consumerfinance.gov/an-essential-guide-to-building-an-emergency-fund/) emphasizes that an appropriate target depends on individual circumstances. Extra commitments and earmarked savings remain editable. Choose **Use my own amounts** to override all three inferred/suggested values, or **Estimate from transactions** to recalculate after refresh. Roth eligibility, tax income and existing IRA contributions are never inferred from deposits.
+
+The plan and chat use the same backend calculation. This change does not add an LLM budget-estimation call or change the separate 14-day bill chart.
 
 ## Roth scope and sources
 
@@ -37,7 +47,7 @@ Sources checked September 10, 2026: [IRS contribution limits](https://www.irs.go
 
 The invite gate protects `/api/growth`; the handler also requires the existing random monitor capability. The endpoint reads current balances and settings and checks that they match the displayed context. The browser hides prior suggestions when the context or applied inputs change, waits for monitor settings to synchronize, aborts superseded requests, and rejects late results. Changing plan assumptions clears old chat explanations. API errors show a retry state rather than old allocation amounts.
 
-Plan assumptions are held in the current page and sent only to this app's server for calculation; they reset on reload. No growth plan is saved to the ledger, and repeated previews cannot produce duplicate contributions. The Plaid Sandbox page remains a separate read-only view; growth planning is synthetic-only in this version.
+Plan assumptions are held in the current page and sent only to this app's server for calculation; they reset on reload. No growth plan is saved to the ledger, and repeated previews cannot produce duplicate contributions. The Plaid Sandbox page uses the same planner through `/api/sandbox/growth`, protected by judge access and the current observation capability. Both planning and chat read server-stored balances and corrections for that observation; they never accept browser-supplied balances or create a monitoring/transfer session. Expired observations require a refresh. Sandbox spending, buffer and reserve target start in estimate mode, with income and contribution amounts unconfirmed; bank data is not treated as proof of Roth eligibility. No savings account, stale data or unknown pending effects withhold allocations. A savings account does not need recurring bill history to count toward the reserve, but its freshness, pending effects and overall history coverage are still checked.
 
 ## Next milestones
 

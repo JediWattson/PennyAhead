@@ -19,9 +19,11 @@ import {
   ShieldCheck,
   MessageCircle,
   LoaderCircle,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import type {
   AssistantReply,
   DemoForecast,
@@ -32,7 +34,10 @@ import type {
 import { formatMoney } from '../lib/money';
 import { registerAccountReader } from '../lib/webmcp';
 import { GrowthPanel } from './growth-panel';
-import { DEMO_GROWTH_INPUTS, type GrowthInputs } from '../lib/growth-contracts';
+import {
+  initialGrowthInputs,
+  type GrowthInputs,
+} from '../lib/growth-contracts';
 import { growthContext } from '../lib/growth-context';
 import { ForecastPanel } from './forecast-panel';
 import { MonitorPanel, type FundingSettings } from './monitor-panel';
@@ -60,7 +65,7 @@ export function Dashboard({
 }) {
   const [demo, setDemo] = useState(initialDemo);
   const [growthInputs, setGrowthInputs] = useState<GrowthInputs>(() =>
-    structuredClone(DEMO_GROWTH_INPUTS),
+    initialGrowthInputs(initialDemo.snapshot.source),
   );
   const [fundingSettings, setFundingSettings] = useState<FundingSettings>({
     enabled: true,
@@ -71,6 +76,15 @@ export function Dashboard({
   const [sessionContext, setSessionContext] = useState('');
   const ledgerVersion = useRef<string | null>(null);
   const snapshot = demo.snapshot;
+  const [selectedAccountId, setSelectedAccountId] = useState(
+    initialDemo.snapshot.accounts[0]?.id,
+  );
+  const selectedAccount =
+    snapshot.accounts.find((account) => account.id === selectedAccountId) ??
+    snapshot.accounts[0];
+  const accountTransactions = snapshot.transactions
+    .filter((transaction) => transaction.accountId === selectedAccount?.id)
+    .sort((a, b) => b.date.localeCompare(a.date));
   const sandbox = snapshot.source === 'plaid_sandbox';
   const demoSessionReady =
     sandbox ||
@@ -83,6 +97,7 @@ export function Dashboard({
   useEffect(() => registerAccountReader(snapshot), [snapshot]);
   const chatVersion = useRef(0);
   const [draft, setDraft] = useState('');
+  const conversationRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,33 +105,41 @@ export function Dashboard({
     {
       role: 'assistant',
       text: sandbox
-        ? 'Your Plaid Sandbox test accounts are connected. Ask about the balances, forecast, or recent activity shown here. I use scripted replies; these are test records and no real money is connected.'
+        ? 'Your Plaid Sandbox test accounts are connected. Ask about saving and investing, balances, forecasts, or recent activity. I start with a spending estimate from your transactions and adjustable savings targets; Roth eligibility details need your input. I use scripted replies; these are test records and no real money is connected.'
         : 'Hi Alex. Let’s make room for your savings and retirement goals while protecting the money you need for spending. Ask me to explain your Save and invest plan, your balances, or upcoming bills. This demo uses synthetic accounts and a sample financial profile.',
     },
   ]);
 
-  const onSession = useCallback((state: MonitorView) => {
-    const version = JSON.stringify([
-      state.generation,
-      state.transfers.map((t) => [t.id, t.status]),
-    ]);
-    if (ledgerVersion.current !== null && version !== ledgerVersion.current) {
-      setMessages([]);
-      chatVersion.current++;
-    }
-    ledgerVersion.current = version;
-    setSessionId(state.id);
-    setSessionContext(
-      growthContext(state.demo, state.config.savingsMinimumCents),
-    );
-    setDemo((previous) =>
-      previous.scenario === state.demo.scenario &&
-      JSON.stringify(previous.corrections) ===
-        JSON.stringify(state.demo.corrections)
-        ? state.demo
-        : previous,
-    );
-  }, []);
+  useEffect(() => {
+    const conversation = conversationRef.current;
+    if (conversation) conversation.scrollTop = conversation.scrollHeight;
+  }, [messages, busy]);
+
+  const onSession = useCallback(
+    (state: MonitorView) => {
+      const version = JSON.stringify([
+        state.generation,
+        state.transfers.map((t) => [t.id, t.status]),
+      ]);
+      if (ledgerVersion.current !== null && version !== ledgerVersion.current) {
+        setMessages([]);
+        chatVersion.current++;
+      }
+      ledgerVersion.current = version;
+      setSessionId(state.id);
+      setSessionContext(
+        growthContext(state.demo, state.config.savingsMinimumCents),
+      );
+      setDemo((previous) =>
+        previous.scenario === state.demo.scenario &&
+        JSON.stringify(previous.corrections) ===
+          JSON.stringify(state.demo.corrections)
+          ? state.demo
+          : previous,
+      );
+    },
+    [setMessages],
+  );
 
   async function ask(message: string) {
     if (inFlight.current || forecastInFlight.current || !message.trim()) return;
@@ -141,6 +164,7 @@ export function Dashboard({
                   message,
                   snapshotId: demo.snapshotId,
                   corrections: demo.corrections,
+                  growth: growthInputs,
                 }
               : {
                   message,
@@ -279,69 +303,34 @@ export function Dashboard({
                 : 'Turn money left after spending into progress toward your savings and retirement goals.'}
             </p>
           </div>
-          <div className="snapshot-note">
-            <span className="status-dot" />
-            {sandbox ? 'Balance observation' : 'Fixed demo clock'}
-            <br />
-            <strong>
-              {sandbox
-                ? `${snapshot.asOf.slice(0, 10)} · ${snapshot.asOf.slice(11, 16)} UTC`
-                : 'September 8, 2026 · 4:00 p.m. UTC'}
-            </strong>
+        </div>
+        {!sandbox && (
+          <div className="scenario-controls">
+            <label htmlFor="scenario">Demo scenario</label>
+            <select
+              id="scenario"
+              value={demo.scenario}
+              disabled={busy || forecastBusy || !demoSessionReady}
+              onChange={(event) => {
+                void changeDemo({
+                  scenario: event.target.value as DemoScenario,
+                  corrections: [],
+                });
+              }}
+            >
+              <option value="growth">Save and invest</option>
+              <option value="shortfall">Subscription shortfall</option>
+              <option value="sufficient">Sufficient funds</option>
+              <option value="uncertain">Uncertain payment dates</option>
+              <option value="stale">Stale account data</option>
+            </select>
+            <span>All scenarios use synthetic data.</span>
+            {sandboxAvailable && (
+              <Link href="/sandbox">Plaid Sandbox accounts</Link>
+            )}
+            <a href="#assistant-heading">Ask assistant</a>
+            {forecastBusy && <output>Updating forecast…</output>}
           </div>
-        </div>
-        <div className="scenario-controls">
-          {sandbox ? (
-            <>
-              <span>Provider-generated test data · Read-only</span>
-              <Button
-                variant="outline"
-                disabled={busy || forecastBusy || !demoSessionReady}
-                onClick={() => {
-                  void refreshSandbox();
-                }}
-              >
-                Refresh Sandbox data
-              </Button>
-              <Link href="/">Synthetic demo</Link>
-            </>
-          ) : (
-            <>
-              <label htmlFor="scenario">Demo scenario</label>
-              <select
-                id="scenario"
-                value={demo.scenario}
-                disabled={busy || forecastBusy || !demoSessionReady}
-                onChange={(event) => {
-                  void changeDemo({
-                    scenario: event.target.value as DemoScenario,
-                    corrections: [],
-                  });
-                }}
-              >
-                <option value="growth">Save and invest</option>
-                <option value="shortfall">Subscription shortfall</option>
-                <option value="sufficient">Sufficient funds</option>
-                <option value="uncertain">Uncertain payment dates</option>
-                <option value="stale">Stale account data</option>
-              </select>
-              <span>All scenarios use synthetic data.</span>
-              {sandboxAvailable && (
-                <Link href="/sandbox">Plaid Sandbox accounts</Link>
-              )}
-            </>
-          )}
-          <a href="#assistant-heading">Ask assistant</a>
-          {forecastBusy && <output>Updating forecast…</output>}
-        </div>
-        {sandbox && (
-          <p className="sandbox-scope">
-            Showing {snapshot.accounts.length} USD checking and savings accounts
-            from {snapshot.coverage?.totalAccounts ?? snapshot.accounts.length}{' '}
-            linked test accounts. Other account types and currencies are
-            excluded. Reads are cached for one minute; refresh resets
-            corrections and chat.
-          </p>
         )}
         {forecastError && (
           <p className="error-message" role="alert">
@@ -349,12 +338,176 @@ export function Dashboard({
           </p>
         )}
         <div className="dashboard-grid">
-          <section className="overview" aria-label="Account overview">
-            {!sandbox && (
+          <Tabs defaultValue="activity" className="overview detail-tabs">
+            <TabsList
+              className="detail-tab-list"
+              aria-label="Dashboard details"
+            >
+              <TabsTrigger value="activity">Overview</TabsTrigger>
+              <TabsTrigger value="growth">Save &amp; invest</TabsTrigger>
+              <TabsTrigger value="bills">Bills</TabsTrigger>
+            </TabsList>
+            <TabsContent value="activity" className="detail-panel" keepMounted>
+              <div className="section-heading">
+                <h2>Your accounts</h2>
+                <div className="account-heading-actions">
+                  <span>
+                    {snapshot.accounts.length}{' '}
+                    {sandbox ? 'Sandbox' : 'synthetic'} accounts · USD
+                  </span>
+                  {sandbox && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Refresh Sandbox data"
+                      title="Refresh Sandbox data"
+                      disabled={busy || forecastBusy || !demoSessionReady}
+                      onClick={() => {
+                        void refreshSandbox();
+                      }}
+                    >
+                      <RefreshCw
+                        className={forecastBusy ? 'animate-spin' : ''}
+                      />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <div className="account-grid">
+                {snapshot.accounts.map((account) => (
+                  <article
+                    key={account.id}
+                    className={`account-card ${account.kind} ${selectedAccount?.id === account.id ? 'selected' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      className="account-select"
+                      aria-label={`Show activity for ${account.name}${account.mask ? ` ending in ${account.mask}` : ''}`}
+                      aria-pressed={selectedAccount?.id === account.id}
+                      aria-controls="account-activity"
+                      onClick={() => setSelectedAccountId(account.id)}
+                    />
+                    <div className="account-top">
+                      <span className="account-icon">
+                        {account.kind === 'checking' ? (
+                          <Wallet size={22} />
+                        ) : (
+                          <Landmark size={22} />
+                        )}
+                      </span>
+                      <span>
+                        {account.mask
+                          ? `•• ${account.mask}`
+                          : 'No mask provided'}
+                      </span>
+                    </div>
+                    <h3>{account.name}</h3>
+                    <p className="account-balance">
+                      {formatMoney(account.availableCents)}
+                    </p>
+                    <p className="available-label">Available balance</p>
+                    <div className="account-bottom">
+                      <span>Current balance</span>
+                      <strong>{formatMoney(account.currentCents)}</strong>
+                    </div>
+                    <span className="account-activity-label" aria-hidden="true">
+                      {selectedAccount?.id === account.id
+                        ? 'Showing activity'
+                        : 'View activity'}
+                      <ArrowRight size={14} />
+                    </span>
+                  </article>
+                ))}
+              </div>
+              <div className="funds-note">
+                <ShieldCheck size={20} />
+                <p>
+                  {sandbox ? (
+                    'Available balances come from Plaid Sandbox. Pending activity with an unknown effect on those balances is flagged in the forecast.'
+                  ) : (
+                    <>
+                      The <strong>$30.50 pending debit</strong> is already
+                      included in your checking account’s available balance.
+                    </>
+                  )}
+                </p>
+              </div>
+              <section
+                id="account-activity"
+                className="activity"
+                aria-labelledby="activity-heading"
+              >
+                <div className="section-heading">
+                  <h2 id="activity-heading">Recent activity</h2>
+                  <span>
+                    {sandbox ? 'Plaid Sandbox history' : 'Synthetic history'}
+                  </span>
+                </div>
+                <output className="activity-account">
+                  {selectedAccount?.name ?? 'No account selected'}
+                  {selectedAccount?.mask ? ` · •• ${selectedAccount.mask}` : ''}
+                </output>
+                {accountTransactions.length === 0 ? (
+                  <p className="activity-empty">
+                    No transactions for this account in the loaded history.
+                  </p>
+                ) : (
+                  <ul className="transaction-list">
+                    {accountTransactions.slice(0, 6).map((transaction) => (
+                      <li key={transaction.id}>
+                        <span
+                          className={`transaction-icon ${transaction.amountCents > 0 ? 'credit' : ''}`}
+                        >
+                          {transaction.amountCents > 0 ? (
+                            <ArrowDownLeft size={20} />
+                          ) : (
+                            <ArrowUpRight size={20} />
+                          )}
+                        </span>
+                        <div className="transaction-description">
+                          <strong>{transaction.merchant}</strong>
+                          <span>
+                            {new Intl.DateTimeFormat('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              timeZone: 'UTC',
+                            }).format(new Date(transaction.date))}{' '}
+                            ·{' '}
+                            {snapshot.accounts.find(
+                              (account) => account.id === transaction.accountId,
+                            )?.name ?? 'Account'}
+                          </span>
+                        </div>
+                        <div className="transaction-amount">
+                          <strong>
+                            {transaction.amountCents > 0 ? '+' : ''}
+                            {formatMoney(transaction.amountCents)}
+                          </strong>
+                          <span
+                            className={
+                              transaction.status === 'pending'
+                                ? 'pending-label'
+                                : ''
+                            }
+                          >
+                            {transaction.status === 'pending'
+                              ? 'Pending'
+                              : 'Posted'}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            </TabsContent>
+            <TabsContent value="growth" className="detail-panel" keepMounted>
               <GrowthPanel
                 demo={demo}
                 inputs={growthInputs}
-                savingsMinimumCents={fundingSettings.savingsMinimumCents}
+                savingsMinimumCents={
+                  sandbox ? 0 : fundingSettings.savingsMinimumCents
+                }
                 sessionId={demoSessionReady ? sessionId : null}
                 busy={busy || forecastBusy}
                 onChange={(next) => {
@@ -369,139 +522,58 @@ export function Dashboard({
                   void ask('Explain my savings and Roth plan');
                 }}
               />
-            )}
-
-            <div className="section-heading">
-              <h2>Your accounts</h2>
-              <span>
-                {snapshot.accounts.length} {sandbox ? 'Sandbox' : 'synthetic'}{' '}
-                accounts · USD
-              </span>
-            </div>
-            <div className="account-grid">
-              {snapshot.accounts.map((account) => (
-                <article
-                  key={account.id}
-                  className={`account-card ${account.kind}`}
+            </TabsContent>
+            <TabsContent value="bills" className="detail-panel" keepMounted>
+              {sandbox ? (
+                <section
+                  className="bill-suggestion"
+                  aria-labelledby="bill-suggestion-heading"
+                  aria-busy={forecastBusy}
                 >
-                  <div className="account-top">
-                    <span className="account-icon">
-                      {account.kind === 'checking' ? (
-                        <Wallet size={22} />
-                      ) : (
-                        <Landmark size={22} />
-                      )}
-                    </span>
-                    <span>
-                      {account.mask ? `•• ${account.mask}` : 'No mask provided'}
-                    </span>
-                  </div>
-                  <h3>{account.name}</h3>
-                  <p className="account-balance">
-                    {formatMoney(account.availableCents)}
+                  <p className="eyebrow">A SUGGESTED NEXT STEP</p>
+                  <h2 id="bill-suggestion-heading">
+                    {demo.billSuggestion?.title ?? 'Review your bill forecast'}
+                  </h2>
+                  <p>
+                    {demo.billSuggestion?.explanation ??
+                      'Ask the assistant to explain the upcoming bills and your options for covering them.'}
                   </p>
-                  <p className="available-label">Available balance</p>
-                  <div className="account-bottom">
-                    <span>Current balance</span>
-                    <strong>{formatMoney(account.currentCents)}</strong>
-                  </div>
-                </article>
-              ))}
-            </div>
-            <div className="funds-note">
-              <ShieldCheck size={20} />
-              <p>
-                {sandbox ? (
-                  'Available balances come from Plaid Sandbox. Pending activity with an unknown effect on those balances is flagged in the forecast.'
-                ) : (
-                  <>
-                    The <strong>$30.50 pending debit</strong> is already
-                    included in your checking account’s available balance.
-                  </>
-                )}
-              </p>
-            </div>
-            {sandbox ? (
-              <div className="sandbox-transfer-note">
-                <strong>Transfers are not connected</strong>
-                <p>
-                  This view reads Plaid test data. Automated monitoring and
-                  approved provider transfers will be connected separately;
-                  refreshing or chatting cannot move money.
-                </p>
-              </div>
-            ) : (
-              <MonitorPanel
+                  <p className="bill-suggestion-boundary">
+                    You decide what to do in your bank app. This suggestion
+                    moves no money and pays no bills.
+                  </p>
+                  <Button
+                    variant="outline"
+                    disabled={busy || forecastBusy}
+                    onClick={() => {
+                      document
+                        .getElementById('assistant-heading')
+                        ?.scrollIntoView({ block: 'start' });
+                      void ask('How can I cover upcoming bills?');
+                    }}
+                  >
+                    Explain this suggestion
+                  </Button>
+                </section>
+              ) : (
+                <MonitorPanel
+                  demo={demo}
+                  settings={fundingSettings}
+                  onSession={onSession}
+                  onSettings={(settings) => {
+                    setFundingSettings(settings);
+                    setMessages([]);
+                  }}
+                  busy={busy || forecastBusy}
+                />
+              )}
+              <ForecastPanel
                 demo={demo}
-                settings={fundingSettings}
-                onSession={onSession}
-                onSettings={(settings) => {
-                  setFundingSettings(settings);
-                  setMessages([]);
-                }}
                 busy={busy || forecastBusy}
+                change={changeDemo}
               />
-            )}
-            <ForecastPanel
-              demo={demo}
-              busy={busy || forecastBusy}
-              change={changeDemo}
-            />
-            <section className="activity" aria-labelledby="activity-heading">
-              <div className="section-heading">
-                <h2 id="activity-heading">Recent activity</h2>
-                <span>
-                  {sandbox ? 'Plaid Sandbox history' : 'Synthetic history'}
-                </span>
-              </div>
-              <ul className="transaction-list">
-                {snapshot.transactions.slice(0, 6).map((transaction) => (
-                  <li key={transaction.id}>
-                    <span
-                      className={`transaction-icon ${transaction.amountCents > 0 ? 'credit' : ''}`}
-                    >
-                      {transaction.amountCents > 0 ? (
-                        <ArrowDownLeft size={20} />
-                      ) : (
-                        <ArrowUpRight size={20} />
-                      )}
-                    </span>
-                    <div className="transaction-description">
-                      <strong>{transaction.merchant}</strong>
-                      <span>
-                        {new Intl.DateTimeFormat('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          timeZone: 'UTC',
-                        }).format(new Date(transaction.date))}{' '}
-                        ·{' '}
-                        {snapshot.accounts.find(
-                          (account) => account.id === transaction.accountId,
-                        )?.name ?? 'Account'}
-                      </span>
-                    </div>
-                    <div className="transaction-amount">
-                      <strong>
-                        {transaction.amountCents > 0 ? '+' : ''}
-                        {formatMoney(transaction.amountCents)}
-                      </strong>
-                      <span
-                        className={
-                          transaction.status === 'pending'
-                            ? 'pending-label'
-                            : ''
-                        }
-                      >
-                        {transaction.status === 'pending'
-                          ? 'Pending'
-                          : 'Posted'}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </section>
+            </TabsContent>
+          </Tabs>
           <aside
             className="assistant-panel"
             aria-labelledby="assistant-heading"
@@ -529,6 +601,7 @@ export function Dashboard({
             </div>
             <div
               className="conversation"
+              ref={conversationRef}
               role="log"
               aria-label="Assistant conversation"
               aria-live="polite"
@@ -589,27 +662,21 @@ export function Dashboard({
             <div className="assistant-controls">
               <p className="suggestion-label">TRY ASKING</p>
               <div className="suggestions">
-                {suggestions
-                  .filter(
-                    (suggestion) =>
-                      !sandbox ||
-                      suggestion !== 'How much can I save or invest?',
-                  )
-                  .map((suggestion) => (
-                    <Button
-                      key={suggestion}
-                      variant="outline"
-                      className="suggestion"
-                      disabled={busy || forecastBusy || !demoSessionReady}
-                      onClick={() => {
-                        setDraft(suggestion);
-                        void ask(suggestion);
-                      }}
-                    >
-                      {suggestion}
-                      <ArrowRight size={15} />
-                    </Button>
-                  ))}
+                {suggestions.map((suggestion) => (
+                  <Button
+                    key={suggestion}
+                    variant="outline"
+                    className="suggestion"
+                    disabled={busy || forecastBusy || !demoSessionReady}
+                    onClick={() => {
+                      setDraft(suggestion);
+                      void ask(suggestion);
+                    }}
+                  >
+                    {suggestion}
+                    <ArrowRight size={15} />
+                  </Button>
+                ))}
               </div>
               <form onSubmit={submit} className="composer">
                 <label className="sr-only" htmlFor="question">

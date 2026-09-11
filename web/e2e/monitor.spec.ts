@@ -9,6 +9,7 @@ test('background checks create one proposal without chat, persist acknowledgemen
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/?scenario=shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toHaveText(
     'Set aside $35.36 for upcoming bills',
     { timeout: 12000 },
@@ -45,6 +46,7 @@ test('savings restriction, delayed timing, pause and sufficient funds replace ou
 }) => {
   test.setTimeout(60000);
   await page.goto('/?scenario=shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });
@@ -136,6 +138,7 @@ test('failed preference writes hide previous proposals and recover on retry', as
   page,
 }) => {
   await page.goto('/?scenario=shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });
@@ -180,6 +183,7 @@ test('proposal and settings remain readable at desktop and mobile widths', async
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1100 });
     await page.goto('/?scenario=shortfall');
+    await page.getByRole('tab', { name: 'Bills', exact: true }).click();
     await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
       timeout: 12000,
     });

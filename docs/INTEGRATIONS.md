@@ -43,7 +43,9 @@ For initial setup only, add `--create-item`. The script reuses a saved token and
 
 References: [Plaid Sandbox overview](https://plaid.com/docs/sandbox/), [test credentials and institution](https://plaid.com/docs/sandbox/test-credentials/), [Sandbox API](https://plaid.com/docs/api/sandbox/).
 
-## Dwolla sandbox — Access still pending
+## Optional Dwolla execution — Access still pending
+
+The current Bills experience suggests actions for the user to consider in their own bank app. It does not require Dwolla. The steps below apply only if direct money movement is added later.
 
 - [ ] Obtain a sandbox application key and secret and verify OAuth access.
 - [ ] Create a synthetic verified customer and two sandbox funding sources belonging to that customer.

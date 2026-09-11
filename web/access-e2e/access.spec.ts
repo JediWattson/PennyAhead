@@ -21,6 +21,7 @@ test('public pages redirect and every data API blocks direct requests and proxy-
     '/api/assistant',
     '/api/transfers',
     '/api/sandbox',
+    '/api/sandbox/growth',
     '/api/sandbox/assistant',
   ]) {
     for (const method of ['GET', 'POST', 'PATCH']) {
@@ -61,6 +62,7 @@ test('mobile token entry unlocks the working demo, keeps access private, and loc
     timeout: 15000,
   });
   await page.getByLabel('Demo scenario').selectOption('shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 15000,
   });
@@ -114,6 +116,7 @@ test('private link clears its fragment, produces separate browser sessions, and 
     timeout: 15000,
   });
   await page.getByLabel('Demo scenario').selectOption('shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 15000,
   });

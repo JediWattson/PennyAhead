@@ -26,11 +26,14 @@ async function hold(ms = 5000) {
   await page.waitForTimeout(ms);
 }
 try {
-  await page.goto(process.env.DEMO_URL ?? 'http://127.0.0.1:3000/?scenario=shortfall');
+  await page.goto(
+    process.env.DEMO_URL ?? 'http://127.0.0.1:3000/?scenario=shortfall',
+  );
   await caption(
     'PennyAhead · A step ahead of your bills. Synthetic accounts, mock assistant, local simulated transfers.',
   );
   await hold(6500);
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await page.getByTestId('forecast-title').scrollIntoViewIfNeeded();
   await caption(
     '$148.60 available checking. Five estimated bills total $183.96. A $35.36 shortfall appears before the end of two weeks.',

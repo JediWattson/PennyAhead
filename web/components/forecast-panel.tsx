@@ -107,6 +107,23 @@ export function ForecastPanel({
 }) {
   const report = demo.forecast;
   const uncertain = report.bills.some((bill) => bill.enabled && bill.uncertain);
+  const lastDay = report.days[report.days.length - 1];
+  const noBillCharges =
+    report.scheduledCents === 0 &&
+    lastDay.cautiousBalanceCents === report.startingCents;
+  const reliable = report.status !== 'stale' && report.status !== 'incomplete';
+  const nextBill = report.bills
+    .filter(
+      (bill) =>
+        bill.enabled &&
+        !bill.pendingTransactionId &&
+        bill.nextDate > lastDay.date,
+    )
+    .sort((a, b) => a.nextDate.localeCompare(b.nextDate))[0];
+  const cautiousMinimum = Math.min(
+    report.startingCents,
+    ...report.days.map((day) => day.cautiousBalanceCents),
+  );
   const title =
     report.status === 'stale'
       ? 'Account data needs a refresh'
@@ -114,9 +131,13 @@ export function ForecastPanel({
         ? 'Some activity needs verification'
         : report.status === 'shortfall'
           ? `${formatMoney(report.shortageCents)} projected shortfall`
-          : report.status === 'watch'
-            ? 'Payment estimates vary'
-            : 'Detected bills fit this balance';
+          : noBillCharges
+            ? 'No detected bills due in this 14-day view'
+            : report.status === 'watch'
+              ? report.cautiousShortageCents > 0
+                ? `Earlier or higher bills could leave you ${formatMoney(report.cautiousShortageCents)} short`
+                : 'Bills still fit the cautious estimate'
+              : 'Detected bills fit this balance';
   const max = Math.max(
     report.startingCents,
     ...report.days.map((day) => day.balanceCents),
@@ -159,9 +180,14 @@ export function ForecastPanel({
           </p>
           <h3 data-testid="forecast-title">{title}</h3>
           <p>
-            {report.firstShortfall
-              ? `First projected below zero: ${dateLabel(report.firstShortfall)}.`
-              : 'No estimated negative balance on the expected payment dates.'}
+            {reliable && noBillCharges && report.shortageCents === 0
+              ? `Checking stays at ${formatMoney(report.startingCents)} in this projection because no additional bill deductions are expected through ${dateLabel(lastDay.date)}.${nextBill ? ` The next detected bill is ${nextBill.merchant}, estimated for ${dateLabel(nextBill.nextDate)}.` : ''} Everyday spending is not included.`
+              : report.firstShortfall
+                ? `First projected below zero: ${dateLabel(report.firstShortfall)}.`
+                : report.status === 'watch' &&
+                    report.cautiousShortageCents === 0
+                  ? `The lowest projected balance is ${formatMoney(cautiousMinimum)} using earlier payment dates and higher observed amounts. Confirm the estimates below before deciding what to save.`
+                  : 'No estimated negative balance on the expected payment dates.'}
             {report.cautiousFirstShortfall &&
             report.cautiousFirstShortfall !== report.firstShortfall
               ? ` If bills arrive earlier, the shortfall could begin ${dateLabel(report.cautiousFirstShortfall)}.`
@@ -207,7 +233,12 @@ export function ForecastPanel({
           </text>
         </svg>
         {/* oxlint-enable jsx-a11y/prefer-tag-over-role */}
-        {uncertain && (
+        {reliable && noBillCharges && report.shortageCents === 0 && (
+          <p className="chart-legend">
+            No bill deductions projected in this window
+          </p>
+        )}
+        {uncertain && !noBillCharges && (
           <p className="chart-legend">
             Solid: expected timing · Dashed: earlier dates and higher observed
             amounts

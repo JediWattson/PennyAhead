@@ -78,6 +78,7 @@ void test('all data API handlers reject unauthenticated calls independently of P
     await import('../app/api/monitor/route.ts'),
     await import('../app/api/transfers/route.ts'),
     await import('../app/api/sandbox/route.ts'),
+    await import('../app/api/sandbox/growth/route.ts'),
     await import('../app/api/sandbox/assistant/route.ts'),
   ];
   for (const route of routes)

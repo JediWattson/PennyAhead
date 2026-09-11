@@ -238,7 +238,11 @@ export function buildForecast(
       'Transaction history is still loading or its last successful update is unavailable. The forecast needs verification.',
     );
   }
-  if (snapshot.source === 'plaid_sandbox' && bills.length === 0) {
+  if (
+    snapshot.source === 'plaid_sandbox' &&
+    account.kind === 'checking' &&
+    bills.length === 0
+  ) {
     incomplete = true;
     warnings.push(
       'No monthly bills could be confirmed from this history. This projection does not establish that upcoming spending is covered.',

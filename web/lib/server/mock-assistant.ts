@@ -13,6 +13,10 @@ import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
 import { FixtureBankProvider, DEMO_NOW } from './fixtures.ts';
 import { buildFundingPlan } from './funding.ts';
+import {
+  buildBillSuggestion,
+  explainBillSuggestion,
+} from './bill-suggestion.ts';
 
 /** Deliberately deterministic. Replace this adapter in M1b. */
 export class MockAssistant implements Assistant {
@@ -89,11 +93,44 @@ export class MockAssistant implements Assistant {
             : `${plan.reason}\n\nNo transfer was created. These are deterministic demo checks, not live AI decisions.`,
       };
     }
+    if (
+      sandbox &&
+      !/\b(roth|ira|invest|retirement|growth)\b/.test(query) &&
+      (/\b(bill|bills|forecast|shortfall|subscription|subscriptions|afford|cover|funding|proposal)\b/.test(
+        query,
+      ) ||
+        (/\b(should|suggest|recommend|consider)\b|how much/.test(query) &&
+          /\b(transfer|move|savings)\b/.test(query)))
+    ) {
+      const snapshot = await this.bank.getSnapshot(ownerId);
+      const checking = snapshot.accounts.find(
+        (account) => account.kind === 'checking',
+      );
+      if (!checking) throw new Error('Checking account unavailable');
+      const forecast =
+        this.observedForecast ??
+        buildForecast(
+          snapshot,
+          checking.id,
+          new Date().toISOString(),
+          options?.corrections,
+        );
+      const summary =
+        forecast.shortageCents > 0
+          ? `Checking is projected to fall below zero on ${forecast.firstShortfall}, with a maximum shortage of ${formatMoney(forecast.shortageCents)} over 14 days.`
+          : `Checking is projected to end the 14 days at ${formatMoney(forecast.endingCents)} after the detected bills.`;
+      return {
+        ...base,
+        asOf: snapshot.asOf,
+        reads: ['get_forecast', 'get_accounts'],
+        text: `Using the displayed Plaid Sandbox observation: ${summary}\n\n${explainBillSuggestion(buildBillSuggestion(snapshot, forecast))}${forecast.warnings.length ? `\n\n${forecast.warnings.join(' ')}` : ''}`,
+      };
+    }
     if (/\b(transfer|move|send|approve)\b|\bpay\s+(?:\$|\d)/.test(query)) {
       return {
         ...base,
         text: sandbox
-          ? 'This Plaid Sandbox view is read-only. No transfer was created. Provider transfers are not connected yet.'
+          ? 'This view is read-only. No transfer was created. I can suggest how to cover upcoming bills or plan savings contributions; you decide whether to act in your bank app.'
           : /\b(roth|ira|invest|investing|retirement|save|goals)\b|high[- ]yield/.test(
                 query,
               )
@@ -112,7 +149,7 @@ export class MockAssistant implements Assistant {
         reads: this.growthPlan ? ['get_growth_plan'] : [],
         text: this.growthPlan
           ? explainGrowthPlan(this.growthPlan)
-          : 'Open the Save and invest planner to review your spending reserve, savings goal and Roth details. A 14-day bill forecast alone cannot establish an amount to invest. This planner currently uses synthetic data only.',
+          : 'Open the Save and invest planner to review your spending reserve, savings goal and Roth details. A 14-day bill forecast alone cannot establish an amount to invest. The planner uses your displayed test balances and entered assumptions.',
       };
     }
     if (

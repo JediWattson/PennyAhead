@@ -7,10 +7,12 @@ import type {
 } from '../growth-contracts.ts';
 import { formatMoney } from '../money.ts';
 import { buildForecast } from './forecast.ts';
+import { estimateBudget } from './budget-estimate.ts';
 
 const money = z.number().int().min(0).max(100000000);
 const schema = z
   .object({
+    budgetMode: z.enum(['estimated', 'manual']).optional(),
     spendingCents: money,
     extraCommitmentsCents: money,
     checkingBufferCents: money,
@@ -111,15 +113,23 @@ export function buildGrowthPlan(
   raw: GrowthInputs,
   savingsMinimumCents: number,
 ): GrowthPlan {
-  const inputs = parseGrowthInputs(raw);
+  const entered = parseGrowthInputs(raw);
+  const budgetEstimate =
+    entered.budgetMode === 'estimated' ? estimateBudget(demo) : undefined;
+  const inputs = budgetEstimate
+    ? {
+        ...entered,
+        spendingCents: budgetEstimate.spendingCents,
+        checkingBufferCents: budgetEstimate.checkingBufferCents,
+        emergencyTargetCents: budgetEstimate.emergencyTargetCents,
+      }
+    : entered;
   if (
     !Number.isSafeInteger(savingsMinimumCents) ||
     savingsMinimumCents < 0 ||
     savingsMinimumCents > 100000000
   )
     throw new Error('Invalid savings floor');
-  if (demo.snapshot.source !== 'synthetic')
-    throw new Error('Growth planning is limited to the synthetic demo');
   const checking = demo.snapshot.accounts.find(
     (a) => a.id === demo.forecast.accountId && a.kind === 'checking',
   );
@@ -128,14 +138,21 @@ export function buildGrowthPlan(
   );
   if (
     !checking ||
-    !savings.length ||
     demo.snapshot.accounts.some(
       (a) => !Number.isSafeInteger(a.availableCents) || a.currency !== 'USD',
     )
   )
     throw new Error('Incomplete accounts');
   const blockers: string[] = [];
-  if (!inputs.budgetReviewed)
+  if (!savings.length)
+    blockers.push(
+      'No savings account is available to verify the cash reserve. Review your savings before allocating money to goals.',
+    );
+  if (budgetEstimate && !budgetEstimate.usable)
+    blockers.push(
+      'There is less than 30 days of usable spending history. Add history or enter your own budget to build a starting plan.',
+    );
+  if (!budgetEstimate && !inputs.budgetReviewed)
     blockers.push(
       'Review all spending, minimum debt payments and other commitments for the next 30 days. The 14-day bill forecast alone cannot establish surplus.',
     );
@@ -214,9 +231,13 @@ export function buildGrowthPlan(
     `Keep ${formatMoney(spendingReserveCents)} for the next 30 days and ${formatMoney(inputs.checkingBufferCents)} as your checking buffer. Future paychecks are not counted.`,
     emergencyGapCents > 0
       ? `Your cash reserve is ${formatMoney(emergencyGapCents)} below your ${formatMoney(emergencyTargetCents)} target. This plan fills that gap before allocating to retirement.`
-      : 'Your entered cash-reserve target is covered by unearmarked savings in this snapshot.',
+      : `Your ${budgetEstimate ? 'suggested' : 'entered'} cash-reserve target is covered by unearmarked savings in this snapshot.`,
     roth.reason,
   ];
+  if (budgetEstimate)
+    reasons.push(
+      `The starting budget uses ${budgetEstimate.transactionCount} posted checking outflows over ${budgetEstimate.historyDays} days. It takes the largest of the last 30 days (${formatMoney(budgetEstimate.recentOutflowsCents)}), the history scaled to 30 days (${formatMoney(budgetEstimate.monthlyAverageCents)}), and cautious upcoming monthly bills (${formatMoney(budgetEstimate.upcomingBillsCents)}), without adding them together. Transfers, debt payments and one-off purchases remain included; credits do not offset spending. The suggested buffer is seven days of estimated spending and the cash-reserve target is three months. These are adjustable starting points. Spending outside this account and savings earmarked elsewhere may be missing.`,
+    );
   if (!inputs.retirementPrioritiesReviewed)
     reasons.push(
       'Review debt commitments and any workplace retirement match before allocating to a Roth IRA. Roth planning is paused.',
@@ -226,12 +247,13 @@ export function buildGrowthPlan(
       'Keep cash available for spending and your buffer before adding to savings or retirement.',
     );
   return {
+    ...(budgetEstimate ? { budgetEstimate } : {}),
     status: blockers.length
       ? 'needs_review'
       : rawSurplus <= 0
         ? 'cash_first'
         : 'ready',
-    source: 'synthetic',
+    source: demo.snapshot.source,
     asOf: demo.snapshot.asOf,
     horizonDays: 30,
     checkingAvailableCents,
@@ -256,9 +278,13 @@ export function buildGrowthPlan(
 }
 
 export function explainGrowthPlan(plan: GrowthPlan): string {
+  const source =
+    plan.source === 'plaid_sandbox'
+      ? `Plaid Sandbox test balances and ${plan.budgetEstimate ? 'transaction-based estimates' : 'entered assumptions'}`
+      : 'synthetic data';
   if (plan.status === 'needs_review')
-    return `The savings and retirement plan needs more information. ${plan.blockers.join(' ')} No allocation is suggested.`;
+    return `The savings and retirement plan needs more information. ${plan.blockers.join(' ')} No allocation is suggested. This preview uses ${source}; no money was moved.`;
   if (plan.status === 'cash_first')
-    return `Keep cash available first: checking is ${formatMoney(plan.cashGapCents)} below the entered spending reserve and buffer. Suggested new savings and Roth contributions are $0.00. ${plan.reasons[0]}`;
-  return `Based on the entered demo assumptions, ${formatMoney(plan.availableForGoalsCents)} is available for goals after spending and the checking buffer. This plan suggests ${formatMoney(plan.hysaSuggestedCents)} toward high-yield savings and ${formatMoney(plan.rothSuggestedCents)} toward a Roth IRA, leaving ${formatMoney(plan.keepInCheckingCents)} unallocated in checking.\n\n${plan.reasons.join(' ')}\n\nThis is a one-time planning preview using synthetic data. No account was opened, investment selected, or contribution made.`;
+    return `Keep cash available first: checking is ${formatMoney(plan.cashGapCents)} below the ${plan.budgetEstimate ? 'estimated' : 'entered'} spending reserve and buffer. Suggested new savings and Roth contributions are $0.00. ${plan.reasons.join(' ')} This preview uses ${source}; no money was moved.`;
+  return `Based on ${plan.budgetEstimate ? 'the transaction history and suggested reserves' : 'the entered demo assumptions'}, ${formatMoney(plan.availableForGoalsCents)} is ${plan.budgetEstimate ? 'potentially ' : ''}available for goals after spending and the checking buffer. This plan suggests ${formatMoney(plan.hysaSuggestedCents)} toward high-yield savings and ${formatMoney(plan.rothSuggestedCents)} toward a Roth IRA, leaving ${formatMoney(plan.keepInCheckingCents)} unallocated in checking.\n\n${plan.reasons.join(' ')}\n\nThis is a one-time planning preview using ${source}. No account was opened, investment selected, or contribution made.`;
 }

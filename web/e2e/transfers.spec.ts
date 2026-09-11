@@ -3,6 +3,7 @@ test('approved simulation is pending until settlement, updates forecast and chat
   page,
 }) => {
   await page.goto('/?scenario=shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });
@@ -52,6 +53,7 @@ test('declining does not send and automatic funding can be revoked before a late
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/?scenario=shortfall');
+  await page.getByRole('tab', { name: 'Bills', exact: true }).click();
   await expect(page.getByTestId('proposal-title')).toContainText('$35.36', {
     timeout: 12000,
   });

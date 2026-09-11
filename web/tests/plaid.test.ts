@@ -375,6 +375,8 @@ void test('Sandbox API and chat use the same corrected observation, reject unkno
     const initial = await GET();
     assert.equal(initial.headers.get('Cache-Control'), 'no-store');
     const demo = await initial.json();
+    assert.equal(demo.billSuggestion.status, 'consider_top_up');
+    assert.equal(demo.billSuggestion.suggestedCents, 3536);
     const bill = demo.forecast.bills.find(
       (b: { merchant: string }) => b.merchant === 'Adobe Creative Cloud',
     );
@@ -396,7 +398,10 @@ void test('Sandbox API and chat use the same corrected observation, reject unkno
       }),
     );
     assert.equal(corrected.status, 200);
-    assert.equal((await corrected.json()).forecast.endingCents, 2463);
+    const correctedView = await corrected.json();
+    assert.equal(correctedView.forecast.endingCents, 2463);
+    assert.equal(correctedView.billSuggestion.status, 'covered');
+    assert.equal(correctedView.billSuggestion.suggestedCents, 0);
     const answer = await chat(
       new Request('http://localhost/api/sandbox/assistant', {
         method: 'POST',
@@ -411,6 +416,8 @@ void test('Sandbox API and chat use the same corrected observation, reject unkno
     assert.equal(reply.source, 'plaid_sandbox');
     assert.match(reply.text, /14 days at \$24\.63/);
     assert.match(reply.text, /Plaid Sandbox/);
+    assert.match(reply.text, /No top-up is suggested/);
+    assert.match(reply.text, /No money has moved/);
     assert.doesNotMatch(reply.text, /September 8 demo clock/);
     const transfer = await chat(
       new Request('http://localhost/api/sandbox/assistant', {
