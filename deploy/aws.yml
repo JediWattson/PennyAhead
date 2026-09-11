@@ -10,6 +10,16 @@ Parameters:
     Type: String
     AllowedPattern: '[a-f0-9]{40}'
     Description: Exact reviewed public GitHub commit to build
+  AssistantMode:
+    Type: String
+    Default: mock
+    AllowedValues: [mock, bedrock]
+  RuntimeConfig:
+    Type: String
+    Default: '{}'
+    NoEcho: true
+    MaxLength: 4096
+    Description: Whitelisted runtime configuration JSON, stored in Secrets Manager
   DomainName:
     Type: String
     Default: ''
@@ -49,7 +59,13 @@ Rules:
         AssertDescription: Provide both DomainName and CertificateArn, or leave both empty
 Conditions:
   HasCustomDomain: !Not [!Equals [!Ref DomainName, '']]
+  UsesBedrock: !Equals [!Ref AssistantMode, bedrock]
 Resources:
+  RuntimeSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: PennyAhead demo runtime settings and Sandbox credentials
+      SecretString: !Ref RuntimeConfig
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -71,6 +87,28 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: ReadDemoRuntime
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: secretsmanager:GetSecretValue
+                Resource: !Ref RuntimeSecret
+        - !If
+          - UsesBedrock
+          - PolicyName: InvokeDemoModel
+            PolicyDocument:
+              Version: '2012-10-17'
+              Statement:
+                - Effect: Allow
+                  Action: [bedrock:InvokeModel, bedrock:InvokeModelWithResponseStream]
+                  Resource:
+                    - !Sub arn:aws:bedrock:us-east-1:${AWS::AccountId}:inference-profile/us.amazon.nova-2-lite-v1:0
+                    - arn:aws:bedrock:us-east-1::foundation-model/amazon.nova-2-lite-v1:0
+                    - arn:aws:bedrock:us-east-2::foundation-model/amazon.nova-2-lite-v1:0
+                    - arn:aws:bedrock:us-west-2::foundation-model/amazon.nova-2-lite-v1:0
+          - !Ref AWS::NoValue
   InstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:
@@ -82,7 +120,8 @@ Resources:
       InstanceType: t3.small
       CreditSpecification: {CPUCredits: standard}
       IamInstanceProfile: !Ref InstanceProfile
-      MetadataOptions: {HttpTokens: required, HttpPutResponseHopLimit: 1}
+      # IMDSv2 must cross the Docker bridge for the SDK's instance-role credentials.
+      MetadataOptions: {HttpTokens: required, HttpPutResponseHopLimit: 2}
       NetworkInterfaces:
         - DeviceIndex: '0'
           AssociatePublicIpAddress: true
@@ -112,14 +151,25 @@ Resources:
           chown 1000:1000 /var/lib/pennyahead
           install -m 600 /dev/null /etc/pennyahead.env
           cat > /etc/pennyahead.env <<'ENV'
-          PENNYAHEAD_ASSISTANT=mock
+          PENNYAHEAD_ASSISTANT=${AssistantMode}
           PENNYAHEAD_TRANSFER_PROVIDER=local_simulation
           PENNYAHEAD_ORIGIN_TOKEN=${OriginToken}
           PENNYAHEAD_ACCESS_MODE=required
           PENNYAHEAD_INVITE_HASHES=${InviteHashes}
           PENNYAHEAD_ACCESS_SECRET=${AccessSecret}
           ENV
-          docker run -d --name pennyahead --restart unless-stopped --cap-drop ALL --security-opt no-new-privileges:true --env-file /etc/pennyahead.env -p 80:3000 -v /var/lib/pennyahead:/data pennyahead:${Commit}
+          umask 077
+          aws secretsmanager get-secret-value --region ${AWS::Region} --secret-id '${RuntimeSecret}' --query SecretString --output text > /run/pennyahead-runtime.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          settings = json.loads(Path('/run/pennyahead-runtime.json').read_text())
+          with open('/etc/pennyahead.env', 'a') as target:
+              for key, value in settings.items():
+                  target.write(key + '=' + value + '\n')
+          Path('/run/pennyahead-runtime.json').unlink()
+          PY
+          docker run -d --name pennyahead --restart unless-stopped --cap-drop ALL --security-opt no-new-privileges:true --log-opt max-size=10m --log-opt max-file=3 --env-file /etc/pennyahead.env -p 80:3000 -v /var/lib/pennyahead:/data pennyahead:${Commit}
   Distribution:
     Type: AWS::CloudFront::Distribution
     Properties:
