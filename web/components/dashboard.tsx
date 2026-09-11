@@ -33,6 +33,7 @@ import type {
   MonitorView,
 } from '../lib/contracts';
 import { formatMoney } from '../lib/money';
+import { selectChatHistory } from '../lib/chat-history';
 import { registerAccountReader } from '../lib/webmcp';
 import { GrowthPanel } from './growth-panel';
 import {
@@ -108,6 +109,7 @@ export function Dashboard({
   const inFlight = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const chatContext = selectChatHistory(messages);
 
   useEffect(() => {
     const conversation = conversationRef.current;
@@ -188,6 +190,7 @@ export function Dashboard({
   async function ask(message: string) {
     if (inFlight.current || forecastInFlight.current || !message.trim()) return;
     const version = chatVersion.current;
+    const history = selectChatHistory(messages).history;
     inFlight.current = true;
     setBusy(true);
     setError(null);
@@ -209,12 +212,14 @@ export function Dashboard({
             sandbox
               ? {
                   message,
+                  ...(history.length ? { history } : {}),
                   snapshotId: demo.snapshotId,
                   corrections: demo.corrections,
                   growth: growthInputs,
                 }
               : {
                   message,
+                  ...(history.length ? { history } : {}),
                   scenario: demo.scenario,
                   corrections: demo.corrections,
                   monitoring: fundingSettings,
@@ -771,6 +776,28 @@ export function Dashboard({
                   ? 'Mock assistant'
                   : 'AI assistant'}
               </p>
+              <div className="chat-context-controls">
+                <small>
+                  {assistantProvider === 'mock'
+                    ? 'Mock replies are scripted; conversational context is used by live AI.'
+                    : chatContext.truncated
+                      ? 'Using recent messages; older turns are outside the context limit.'
+                      : 'Earlier messages in this chat are included for context.'}
+                </small>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={busy || messages.length === 0}
+                  onClick={() => {
+                    setMessages([]);
+                    setDraft('');
+                    setError(null);
+                    chatVersion.current++;
+                  }}
+                >
+                  New chat
+                </Button>
+              </div>
             </div>
           </aside>
         </div>

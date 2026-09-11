@@ -1887,6 +1887,27 @@ summary:focus-visible {
   margin: 9px 0 16px;
 }
 
+.chat-context-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.chat-context-controls small {
+  flex: 1;
+  color: #64727d;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+.chat-context-controls button {
+  color: #355f50;
+  font-size: 0.8rem;
+}
+.chat-context-controls button:hover {
+  color: #244638;
+  background: #edf4ef;
+}
+
 .roth-simulation {
   margin-top: 24px;
   padding: 20px;

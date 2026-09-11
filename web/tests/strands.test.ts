@@ -49,6 +49,9 @@ class ScriptedModel extends Model {
   readName: AssistantReply['reads'][number] = 'get_accounts';
   sandbox = false;
   seenMessages = '';
+  firstMessages: Array<{ role: string; text: string }> = [];
+  draftBeforeRead = false;
+  refuseRead = false;
   updateConfig() {}
   getConfig() {
     return { modelId: 'test-fixture', contextWindowLimit: 100000 };
@@ -57,6 +60,18 @@ class ScriptedModel extends Model {
     messages: Message[],
     options?: StreamOptions,
   ): AsyncIterable<ModelStreamEvent> {
+    if (this.refuseRead || this.draftBeforeRead) {
+      this.draftBeforeRead = false;
+      yield { type: 'modelMessageStartEvent', role: 'assistant' };
+      yield { type: 'modelContentBlockStartEvent' };
+      yield {
+        type: 'modelContentBlockDeltaEvent',
+        delta: { type: 'textDelta', text: 'Unverified old balance is $999.' },
+      };
+      yield { type: 'modelContentBlockStopEvent' };
+      yield { type: 'modelMessageStopEvent', stopReason: 'endTurn' };
+      return;
+    }
     assert.equal(options!.toolSpecs!.length, this.sandbox ? 6 : 8);
     if (this.sandbox) {
       assert(
@@ -80,6 +95,13 @@ class ScriptedModel extends Model {
     );
     yield { type: 'modelMessageStartEvent', role: 'assistant' };
     if (this.calls++ === 0) {
+      this.firstMessages = messages.map((message) => ({
+        role: message.role,
+        text: message.content
+          .filter((block) => block.type === 'textBlock')
+          .map((block) => block.text)
+          .join(''),
+      }));
       yield {
         type: 'modelContentBlockStartEvent',
         start: {
@@ -122,6 +144,113 @@ class ScriptedModel extends Model {
     }
   }
 }
+void test('follow-ups discard drafts without current reads and fail when regrounding is refused', async () => {
+  const store = new MonitorStore(':memory:');
+  try {
+    const state = store.create({
+      scenario: 'shortfall',
+      corrections: [],
+      enabled: true,
+      savingsMinimumCents: 100000,
+      timing: 'standard',
+    });
+    const demo = await getSessionDemo(state);
+    const history = [
+      { role: 'user' as const, text: 'What is my checking balance?' },
+      { role: 'assistant' as const, text: 'It was $999.' },
+    ];
+    for (const sandbox of [false, true]) {
+      const observation = structuredClone(demo);
+      if (sandbox) observation.snapshot.source = 'plaid_sandbox';
+      const model = new ScriptedModel();
+      model.sandbox = sandbox;
+      model.draftBeforeRead = true;
+      const reply = await strandsReply(
+        'And now?',
+        observation,
+        sandbox ? null : state,
+        'bedrock',
+        model,
+        undefined,
+        history,
+      );
+      assert.deepEqual(reply.reads, ['get_accounts']);
+      assert.match(reply.text, /148\.60/);
+      assert.doesNotMatch(reply.text, /999/);
+      model.refuseRead = true;
+      await assert.rejects(
+        strandsReply(
+          'And now?',
+          observation,
+          sandbox ? null : state,
+          'bedrock',
+          model,
+          undefined,
+          history,
+        ),
+        /could not be grounded in current data/,
+      );
+    }
+  } finally {
+    store.close();
+  }
+});
+void test('Strands receives prior exchanges in order, appends the question once and rereads current tools', async () => {
+  const store = new MonitorStore(':memory:');
+  try {
+    const state = store.create({
+      scenario: 'shortfall',
+      corrections: [],
+      enabled: true,
+      savingsMinimumCents: 100000,
+      timing: 'standard',
+    });
+    const history = [
+      {
+        role: 'user' as const,
+        text: 'Call my savings goal the Rainy Day Plan.',
+      },
+      {
+        role: 'assistant' as const,
+        text: 'We can call it the Rainy Day Plan.',
+      },
+    ];
+    const before = structuredClone(history);
+    const model = new ScriptedModel();
+    const result = await strandsReply(
+      'What did I call it, and what is my checking balance?',
+      await getSessionDemo(state),
+      state,
+      'bedrock',
+      model,
+      undefined,
+      history,
+    );
+    assert.deepEqual(model.firstMessages, [
+      ...history,
+      {
+        role: 'user',
+        text: 'What did I call it, and what is my checking balance?',
+      },
+    ]);
+    assert.deepEqual(history, before);
+    assert.deepEqual(result.reads, ['get_accounts']);
+    assert.match(model.seenMessages, /148\.60/);
+    const secondModel = new ScriptedModel();
+    await strandsReply(
+      'Fresh conversation',
+      await getSessionDemo(state),
+      state,
+      'bedrock',
+      secondModel,
+    );
+    assert.deepEqual(secondModel.firstMessages, [
+      { role: 'user', text: 'Fresh conversation' },
+    ]);
+  } finally {
+    store.close();
+  }
+});
 void test('real Strands loop dispatches a fixture model tool request and records only executed reads', async () => {
   const store = new MonitorStore(':memory:');
   try {

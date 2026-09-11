@@ -2,6 +2,7 @@ import {
   buildGrowthPlan,
   parseGrowthInputs,
 } from '../../../lib/server/growth-plan.ts';
+import { parseChatHistory } from '../../../lib/chat-history.ts';
 import { growthContext } from '../../../lib/growth-context.ts';
 import { requireInvite } from '../../../lib/server/invite-access.ts';
 import { bankProvider, DEMO_OWNER_ID } from '../../../lib/server/fixtures.ts';
@@ -45,6 +46,15 @@ export async function POST(request: Request) {
     );
   }
   // No owner/account IDs are accepted from the browser or the assistant.
+  let history;
+  try {
+    history = parseChatHistory('history' in body ? body.history : undefined);
+  } catch {
+    return Response.json(
+      { error: 'Chat history is invalid or too long. Start a new chat.' },
+      { status: 400 },
+    );
+  }
   try {
     const options = parseDemoOptions(body);
     const growth =
@@ -93,6 +103,7 @@ export async function POST(request: Request) {
           mode,
           undefined,
           growth,
+          history,
         );
         return Response.json(reply, {
           headers: { 'Cache-Control': 'no-store' },

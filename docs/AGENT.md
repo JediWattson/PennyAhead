@@ -22,6 +22,14 @@ References: [Strands TypeScript quickstart](https://strandsagents.com/docs/user-
 
 `get_investment_plan` reads the same investment preview displayed below the contribution plan: selected horizon/risk, backend-calculated dollar allocations, example ETFs, optional observed Roth holdings and an explicit unconnected execution state. The model explains these examples; it cannot supply its own ticker, amount, price, order or buying power. Proposed contributions are not settled Roth cash. Observed holdings are not contribution records. See [investment scope](INVESTMENTS.md).
 
+## Conversation context
+
+Both chat routes accept validated prior user/assistant text and seed a fresh Strands agent with it before the current question. The browser includes completed exchanges from the visible conversation automatically. History accepts only alternating user/assistant text; system roles, tool calls/results and metadata fields are rejected. Execution claims inside text remain untrusted. Current financial facts must still come from current read tools; old assistant text is not evidence of balances, eligibility or transactions. If a follow-up draft contains no fresh read, the agent gets one bounded retry to check current data; a second answer without a read fails instead of displaying the unverified draft. Both attempts share the 30-second deadline.
+
+The history budget is the latest 12 complete exchanges (24 prior messages), at most 48,000 characters total. Prior user messages are limited to 1,000 characters and assistant replies to 16,000. Older turns are dropped whole when a limit is reached; the live UI indicates when it is using only recent context. The current user question is appended exactly once. Failed requests are removed before retry, so retries do not repeat a pending turn.
+
+**New chat** clears the visible conversation and its context. Reload, changing the plan/scenario/corrections, refreshing a Sandbox observation, or a changed simulated ledger also clears the relevant chat. History is held in page memory, with no server-side conversation store or cross-session memory. Mock replies remain scripted; multi-turn language understanding is a live-model capability. The local Roth practice ledger remains separate and is not sent as conversation or financial evidence.
+
 ## Local Bedrock testing
 
 The ignored `web/.env.local` selects `PENNYAHEAD_ASSISTANT=bedrock`, `BEDROCK_MODEL_ID=us.amazon.nova-2-lite-v1:0`, `AWS_REGION=us-east-1`, and `AWS_PROFILE=pennyahead`. Both chat views use this server-selected provider; the interface labels live replies as AI and distinguishes Plaid Sandbox data from synthetic fixtures. AWS credentials stay in the existing CLI credential chain. On AWS, omit the local profile and grant the application workload role only the required Bedrock invocation permissions.

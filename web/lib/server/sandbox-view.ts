@@ -1,3 +1,4 @@
+import { parseChatHistory, type ChatHistoryMessage } from '../chat-history.ts';
 import { randomUUID } from 'node:crypto';
 import type {
   BankDataProvider,
@@ -117,12 +118,17 @@ export function sandboxForecast(
 export function parseSandboxInput(
   input: unknown,
   withMessage = false,
-): { snapshotId: string; corrections: BillCorrection[]; message: string } {
+): {
+  snapshotId: string;
+  corrections: BillCorrection[];
+  message: string;
+  history: ChatHistoryMessage[];
+} {
   if (!input || typeof input !== 'object' || Array.isArray(input))
     throw new SandboxError('INVALID_INPUT', 400);
   const data = input as Record<string, unknown>;
   const allowed = withMessage
-    ? ['snapshotId', 'corrections', 'message']
+    ? ['snapshotId', 'corrections', 'message', 'history']
     : ['snapshotId', 'corrections'];
   if (
     Object.keys(data).some((key) => !allowed.includes(key)) ||
@@ -143,6 +149,7 @@ export function parseSandboxInput(
       corrections: parseDemoOptions({ corrections: data.corrections })
         .corrections,
       message: withMessage ? (data.message as string) : '',
+      history: withMessage ? parseChatHistory(data.history) : [],
     };
   } catch {
     throw new SandboxError('INVALID_INPUT', 400);

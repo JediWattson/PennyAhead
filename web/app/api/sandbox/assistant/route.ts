@@ -53,6 +53,7 @@ export async function POST(request: Request) {
           mode,
           undefined,
           planInput?.growth,
+          input.history,
         );
         return Response.json(reply, {
           headers: { 'Cache-Control': 'no-store' },
