@@ -10,6 +10,7 @@ import { assistantMode } from '../lib/server/strands-assistant.ts';
 import { plaidSandboxEnabled } from '../lib/server/plaid-bank.ts';
 export const dynamic = 'force-dynamic';
 import { Dashboard } from '../components/dashboard';
+import { SandboxDashboard } from '../components/sandbox-dashboard';
 
 export default async function Home({
   searchParams,
@@ -18,6 +19,14 @@ export default async function Home({
 }) {
   await requireInvitePage();
   const requested = (await searchParams).scenario;
+  if (plaidSandboxEnabled() && requested === undefined) {
+    return (
+      <>
+        {inviteRequired() && <LockAccess />}
+        <SandboxDashboard assistantProvider={assistantMode()} />
+      </>
+    );
+  }
   let options = parseDemoOptions({ scenario: 'growth' });
   try {
     options = parseDemoOptions({ scenario: requested ?? 'growth' });

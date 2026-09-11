@@ -69,7 +69,7 @@ export function SandboxDashboard({
         These are provider-generated test accounts. No real bank or money
         movement is connected.
       </p>
-      <Link href="/">Open the synthetic demo</Link>
+      <Link href="/?scenario=growth">Open the synthetic demo</Link>
     </main>
   );
 }
